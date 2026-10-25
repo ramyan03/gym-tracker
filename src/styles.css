@@ -1,0 +1,196 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #111111;
+  --color-card: #1a1a1a;
+  --color-raised: #232323;
+  --color-line: #2a2a2a;
+  --color-ink: #c8c8c8;
+  --color-bright: #f2f2f2;
+  --color-dim: #7a7a7a;
+  --color-faint: #4a4a4a;
+  --color-push: #4fc3f7;
+  --color-pull: #a78bfa;
+  --color-legs: #34d399;
+  --color-arms: #fb923c;
+  /* Text in a split's colour; darker in light mode so it stays readable. */
+  --color-ink-push: #4fc3f7;
+  --color-ink-pull: #a78bfa;
+  --color-ink-legs: #34d399;
+  --color-ink-arms: #fb923c;
+  --color-down: #f87171;
+  --color-seg: #2e2e2e; /* selected segment */
+  --color-veil: rgb(0 0 0 / 0.32); /* panel over a tinted card */
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --font-display: "Archivo Variable", "Arial Narrow", sans-serif;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --color-bg: #f4f4f2;
+    --color-card: #ffffff;
+    --color-raised: #ecece9;
+    --color-line: #e3e3df;
+    --color-ink: #3a3a3a;
+    --color-bright: #111111;
+    --color-dim: #6b6b6b;
+    --color-faint: #a8a8a4;
+    --color-ink-push: #0277a8;
+    --color-ink-pull: #6d3fd6;
+    --color-ink-legs: #047857;
+    --color-ink-arms: #c2410c;
+    --color-down: #dc2626;
+    --color-seg: #e6e6e2;
+    --color-veil: rgb(255 255 255 / 0.7);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --color-bg: #f4f4f2;
+      --color-card: #ffffff;
+      --color-raised: #ecece9;
+      --color-line: #e3e3df;
+      --color-ink: #3a3a3a;
+      --color-bright: #111111;
+      --color-dim: #6b6b6b;
+      --color-faint: #a8a8a4;
+      --color-ink-push: #0277a8;
+      --color-ink-pull: #6d3fd6;
+      --color-ink-legs: #047857;
+      --color-ink-arms: #c2410c;
+      --color-down: #dc2626;
+      --color-seg: #e6e6e2;
+      --color-veil: rgb(255 255 255 / 0.7);
+    }
+  }
+
+  html,
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01";
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  input,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Hide number spinners; the phone keypad is the input. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  :root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+  }
+
+  ::placeholder {
+    color: var(--color-faint);
+  }
+}
+
+@utility field {
+  background: var(--color-raised);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 9px 11px;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.15s;
+  &:focus {
+    border-color: var(--color-dim);
+  }
+}
+
+/* Numbers: weights, reps, counts. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@utility label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-dim);
+}
+
+/* Condensed athletic headline face. */
+@utility display {
+  font-family: var(--font-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+@utility page-title {
+  font-family: var(--font-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 0.92;
+  text-transform: uppercase;
+  color: var(--color-bright);
+}
+
+@utility card {
+  background: var(--color-card);
+  border-radius: 22px;
+}
+
+/* Springy press feedback for anything tappable. */
+@utility press {
+  transition: transform 0.45s var(--ease-spring), background-color 0.15s, color 0.15s;
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+    transition-duration: 0.08s;
+  }
+}
+
+/* Staggered entrance; set --i on each item for its slot. */
+@utility rise {
+  animation: rise 0.55s var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+@keyframes reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

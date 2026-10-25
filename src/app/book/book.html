@@ -1,0 +1,166 @@
+<header class="mb-6 flex items-end justify-between gap-3">
+  <div>
+    <p class="label mb-1.5">{{ store.all().length }} sessions{{ store.all().length ? ' since ' + fmtDate(store.all()[0].date, true) : '' }}</p>
+    <h1 class="page-title">Log book</h1>
+  </div>
+  <div role="group" aria-label="View" class="flex gap-0.5 rounded-xl bg-card p-[3px]">
+    <button class="rounded-[9px] px-3 py-2 text-[13px]" [class]="view() === 'calendar' ? 'bg-seg font-semibold text-bright' : 'font-medium text-dim'" (click)="setView('calendar')">Calendar</button>
+    <button class="rounded-[9px] px-3 py-2 text-[13px]" [class]="view() === 'list' ? 'bg-seg font-semibold text-bright' : 'font-medium text-dim'" (click)="setView('list')">List</button>
+  </div>
+</header>
+
+@if (celebration(); as c) {
+  <section class="rise relative mb-6 overflow-hidden rounded-[26px] p-5 text-black" [style.background]="typeColor[c.session.type]">
+    <span class="display pointer-events-none absolute -right-3 -bottom-6 text-[140px] opacity-10">PR</span>
+    <div class="flex items-start justify-between">
+      <p class="text-[13px] font-semibold opacity-70">{{ fmtDate(c.session.date) }} · {{ c.session.type }}</p>
+      <button class="-mt-1 -mr-1 rounded-lg p-1.5 opacity-60" aria-label="Dismiss" (click)="celebrationDismissed.set(true)">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </div>
+    <h2 class="display mt-1 text-[56px]">{{ c.prs.length === 1 ? 'New PR' : c.prs.length + ' new PRs' }}</h2>
+    <div class="mt-4 space-y-2">
+      @for (pr of c.prs; track pr.name; let i = $index) {
+        <div class="rise flex items-baseline justify-between gap-3 rounded-2xl bg-black/10 px-4 py-3" [style.--i]="i + 2">
+          <span class="truncate text-[15px] font-semibold">{{ pr.name }}</span>
+          <span class="shrink-0 text-right">
+            <span class="num text-xl font-semibold">{{ fmtWeight(pr.top.w) }}×{{ pr.top.r }}</span>
+            <span class="num block text-xs opacity-60">was {{ fmtWeight(pr.prev.w) }}×{{ pr.prev.r }}</span>
+          </span>
+        </div>
+      }
+    </div>
+  </section>
+}
+
+@if (view() === 'calendar') {
+  <section class="card rise p-3.5">
+    <div class="mb-2.5 flex items-center justify-between">
+      <button class="press flex h-10 w-10 items-center justify-center rounded-xl bg-raised text-ink" aria-label="Previous month" (click)="shiftMonth(-1)">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
+      </button>
+      <span class="flex items-baseline gap-2">
+        <span class="display text-[24px] text-bright">{{ monthLabel() }}</span>
+        <span class="num text-[13px] text-dim">{{ monthCount() }} session{{ monthCount() === 1 ? '' : 's' }}</span>
+      </span>
+      <button class="press flex h-10 w-10 items-center justify-center rounded-xl bg-raised text-ink" aria-label="Next month" (click)="shiftMonth(1)">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
+      </button>
+    </div>
+    <div class="grid grid-cols-7 gap-1 text-center">
+      @for (w of weekdays; track $index) {
+        <span class="pb-0.5 text-[11px] font-medium text-dim">{{ w }}</span>
+      }
+      @for (c of cells(); track $index) {
+        @if (c) {
+          <button
+            class="num flex aspect-square items-center justify-center rounded-[9px] text-[13px] transition-transform"
+            [style.background]="color(c) ?? 'transparent'"
+            [class.text-black]="!!color(c)"
+            [class.font-semibold]="!!color(c)"
+            [class.text-dim]="!color(c)"
+            [class.ring-2]="c.iso === selectedDay()"
+            [class.ring-bright]="c.iso === selectedDay()"
+            [class.underline]="c.iso === today"
+            [class.underline-offset-4]="c.iso === today"
+            [disabled]="!c.sessions.length"
+            (click)="pick(c)"
+          >{{ c.day }}</button>
+        } @else {
+          <span></span>
+        }
+      }
+    </div>
+  </section>
+
+  @for (s of daySessions(); track s.id) {
+    <div class="mt-5 mb-2.5 flex items-center justify-between gap-3">
+      <span class="flex items-center gap-2.5">
+        <h2 class="display text-[22px] text-bright">{{ fmtDate(s.date) }}</h2>
+        <app-type-badge [type]="s.type" />
+      </span>
+      <button class="press rounded-xl bg-card px-3.5 py-2 text-[13px] font-medium text-ink" (click)="edit(s.id!)">Edit</button>
+    </div>
+    <app-session-detail [session]="s" />
+  } @empty {
+    @if (store.sessions() != null) {
+      <p class="mt-5 text-dim">Nothing logged in {{ monthLabel() }}.</p>
+    }
+  }
+} @else {
+  <div class="mb-4 flex justify-end gap-1.5 text-[13px] font-medium">
+    <button class="press rounded-xl bg-card px-3.5 py-2.5 text-ink" (click)="exportData()">Export</button>
+    <label class="press cursor-pointer rounded-xl bg-card px-3.5 py-2.5 text-ink">
+      Import
+      <input #file type="file" accept="application/json,.json" class="hidden" (change)="pickImport(file)" />
+    </label>
+  </div>
+@if (pendingImport(); as p) {
+  <div class="card mb-4 p-4 text-[15px]">
+    <p class="mb-3 text-bright">
+      Replace all {{ store.all().length }} sessions with the {{ p.count }} in {{ p.name }}?
+    </p>
+    <div class="flex gap-2 text-sm font-medium">
+      <button class="press rounded-xl bg-arms px-4 py-2.5 text-black" (click)="confirmImport()">Replace</button>
+      <button class="press rounded-xl bg-raised px-4 py-2.5 text-ink" (click)="pendingImport.set(null)">Cancel</button>
+    </div>
+  </div>
+}
+@if (message()) {
+  <p class="mb-4 text-sm text-dim">{{ message() }}</p>
+}
+
+@if (store.sessions() == null) {
+  <p class="text-dim">Loading…</p>
+} @else if (!months().length) {
+  <p class="text-dim">No sessions yet. Tap Start to log one.</p>
+}
+
+@for (m of months(); track m.key) {
+  <h2 class="mt-8 mb-3 flex items-baseline justify-between first-of-type:mt-0">
+    <span class="display text-[22px] text-bright">{{ m.label }}</span>
+    <span class="label">{{ m.sessions.length }} sessions</span>
+  </h2>
+  <div class="space-y-2">
+    @for (s of m.sessions; track s.id; let i = $index) {
+      <article [id]="'s-' + s.id" class="card relative overflow-hidden" [class.rise]="i < 8" [style.--i]="i">
+        <span class="absolute inset-y-3 left-0 w-1 rounded-r-full" [style.background]="typeColor[s.type]"></span>
+        <button class="flex w-full items-center gap-4 px-4 py-3.5 text-left" (click)="toggle(s.id!)">
+          <span class="flex w-11 shrink-0 flex-col items-center">
+            <span class="display text-[30px] text-bright">{{ dayNum(s.date) }}</span>
+            <span class="mt-1 text-[11px] font-medium text-dim">{{ weekday(s.date) }}</span>
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="mb-1 flex items-center gap-2">
+              <app-type-badge [type]="s.type" />
+              <span class="text-xs text-dim">{{ s.exercises.length }} exercise{{ s.exercises.length === 1 ? "" : "s" }} · {{ setCount(s) }} set{{ setCount(s) === 1 ? "" : "s" }}</span>
+            </span>
+            <span class="block truncate text-[13px] text-ink">{{ preview(s) }}</span>
+          </span>
+          <svg
+            viewBox="0 0 24 24"
+            class="h-4 w-4 shrink-0 text-faint transition-transform"
+            [class.rotate-90]="open() === s.id"
+            fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          ><path d="M9 6l6 6-6 6" /></svg>
+        </button>
+        @if (open() === s.id) {
+          <div class="px-3 pb-3">
+            <app-session-detail [session]="s" />
+            <div class="mt-3 flex justify-end gap-2 text-[13px] font-medium">
+              <button class="press rounded-xl bg-raised px-4 py-2.5 text-ink" (click)="edit(s.id!)">Edit</button>
+              <button
+                class="press rounded-xl px-4 py-2.5"
+                [class]="confirmDelete() === s.id ? 'press rounded-xl px-4 py-2.5 bg-red-500/90 text-white' : 'press rounded-xl px-4 py-2.5 bg-raised text-dim'"
+                (click)="remove(s.id!)"
+              >
+                {{ confirmDelete() === s.id ? 'Tap to confirm' : 'Delete' }}
+              </button>
+            </div>
+          </div>
+        }
+      </article>
+    }
+  </div>
+}
+}

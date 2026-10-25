@@ -1,0 +1,43 @@
+@if (updateReady() && !dismissed()) {
+  <div class="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-3 bg-card px-4 py-2.5 text-sm shadow-lg">
+    <span>A new version is ready</span>
+    <span class="flex gap-4 font-medium">
+      <button class="text-push" (click)="reload()">Reload</button>
+      <button class="text-dim" (click)="dismissed.set(true)">Later</button>
+    </span>
+  </div>
+}
+
+<main
+  class="mx-auto max-w-xl px-5 pt-8"
+  [class]="inSection() ? 'pb-[calc(7rem+env(safe-area-inset-bottom))]' : 'pb-[calc(2rem+env(safe-area-inset-bottom))]'"
+>
+  @if (inSection()) {
+    <div class="-mt-2 mb-5 flex items-center justify-between gap-3">
+      <a routerLink="/" aria-label="Home" class="press flex h-11 w-11 items-center justify-center rounded-[14px] bg-card text-bright">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v8.5a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 0 1 4 19.5z" /></svg>
+      </a>
+      <nav aria-label="Section" class="flex gap-0.5 rounded-[14px] bg-card p-[3px]">
+        @for (s of sections; track s.path) {
+          <a
+            [routerLink]="s.path"
+            class="rounded-[11px] px-3.5 py-2.5 text-[13px] transition-colors"
+            [class]="isActive(s.path) ? 'bg-seg font-semibold text-bright' : 'font-medium text-dim'"
+          >{{ s.label }}</a>
+        }
+      </nav>
+    </div>
+  }
+  <router-outlet />
+</main>
+
+@if (inSection()) {
+  <a
+    routerLink="/log"
+    class="press fixed right-5 bottom-[calc(1.75rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2.5 rounded-[22px] py-4 pr-5 pl-4 text-black shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
+    [style.background]="nextColor()"
+  >
+    <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+    <span class="display text-[22px]">Start {{ next() }}</span>
+  </a>
+}

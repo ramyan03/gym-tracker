@@ -1,0 +1,342 @@
+@if (store.sessions() != null && focus() && current(); as ex) {
+  <div class="flex min-h-[calc(100dvh-4.5rem)] flex-col" (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
+    <div class="-mt-2 flex items-center justify-between gap-3">
+      <a routerLink="/" aria-label="Home (your session is kept)" class="press flex h-11 w-11 items-center justify-center rounded-[14px] bg-card text-ink">
+        <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </a>
+      <span class="display text-[18px]" [style.color]="typeInk[type()]">{{ type() }} · Lift {{ cur() + 1 }} of {{ draft.exercises.length }}</span>
+      <button class="press rounded-xl px-1 py-2.5 text-[13px] font-medium text-dim" (click)="setMode('list')">List view</button>
+    </div>
+
+    <div class="mt-4 flex gap-1">
+      @for (e of draft.exercises; track $index; let i = $index) {
+        <button class="flex-1 py-1.5" [attr.aria-label]="'Lift ' + (i + 1) + (e.name ? ', ' + e.name : '')" (click)="go(i)">
+          <span
+            class="block h-1 rounded-full transition-colors"
+            [style.background]="i === cur() ? typeColor[type()] : e.sets.length ? typeColor[type()] + '66' : 'var(--color-line)'"
+          ></span>
+        </button>
+      }
+    </div>
+
+    <div class="mt-7">
+      @if (editingName() || !ex.name.trim()) {
+        <input
+          class="display w-full bg-transparent text-[52px] text-bright outline-none placeholder:text-faint"
+          list="exercise-names"
+          placeholder="Exercise name"
+          aria-label="Exercise name"
+          autocapitalize="words"
+          [(ngModel)]="ex.name"
+          (ngModelChange)="changed()"
+          (change)="nameDone()"
+          (keydown.enter)="nameDone()"
+        />
+        <datalist id="exercise-names">
+          @for (n of names(); track n) {
+            <option [value]="n"></option>
+          }
+        </datalist>
+      } @else {
+        <button class="display block text-left text-[60px] text-bright" (click)="editingName.set(true)">{{ ex.name }}</button>
+      }
+
+      @let lastF = lastFor(ex.name);
+      @let peakF = peakFor(ex.name);
+      <p class="mt-3 text-[14px] leading-relaxed text-dim">
+        @if (lastF) {
+          Last time {{ fmtDate(lastF.date) }} <span class="num text-ink">{{ fmtSets(lastF.sets) }}</span>
+        } @else if (ex.name.trim()) {
+          First time logging this lift.
+        }
+        @if (peakF) {
+          · Best <span class="num text-ink">{{ fmtWeight(peakF.best.w) }}×{{ peakF.best.r }}</span>
+        }
+      </p>
+
+      <div class="mt-4 flex flex-wrap gap-1.5">
+        @for (s of ex.sets; track $index; let si = $index) {
+          <button class="press num rounded-[10px] bg-card px-2.5 py-2 text-[14px] text-bright" [attr.aria-label]="'Edit set ' + (si + 1)" (click)="unlog(si)">
+            <span class="text-dim">{{ si + 1 }} ·</span> {{ s.w == null ? '–' : fmtWeight(s.w) }}×{{ s.r ?? '–' }}
+          </button>
+        }
+        <span class="num rounded-[10px] border border-dashed border-line px-2.5 py-[7px] text-[14px] text-dim">{{ ex.sets.length + 1 }} · …</span>
+      </div>
+    </div>
+
+    <div class="mt-auto pt-6">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="card p-3.5 text-center">
+          <label class="label" for="pw">Weight · lb</label>
+          <input
+            id="pw"
+            type="number"
+            inputmode="decimal"
+            step="any"
+            class="display my-2 w-full bg-transparent text-center text-[64px] text-bright outline-none"
+            [ngModel]="pw()"
+            (ngModelChange)="pw.set($event)"
+          />
+          <div class="grid grid-cols-2 gap-1.5">
+            <button class="press num h-12 rounded-[14px] bg-raised text-[20px] text-bright" aria-label="5 pounds less" (click)="bump('w', -5)">−5</button>
+            <button class="press num h-12 rounded-[14px] bg-raised text-[20px] text-bright" aria-label="5 pounds more" (click)="bump('w', 5)">+5</button>
+          </div>
+        </div>
+        <div class="card p-3.5 text-center">
+          <label class="label" for="pr">Reps</label>
+          <input
+            id="pr"
+            type="number"
+            inputmode="numeric"
+            class="display my-2 w-full bg-transparent text-center text-[64px] text-bright outline-none"
+            [ngModel]="pr()"
+            (ngModelChange)="pr.set($event)"
+          />
+          <div class="grid grid-cols-2 gap-1.5">
+            <button class="press num h-12 rounded-[14px] bg-raised text-[20px] text-bright" aria-label="One rep fewer" (click)="bump('r', -1)">−1</button>
+            <button class="press num h-12 rounded-[14px] bg-raised text-[20px] text-bright" aria-label="One rep more" (click)="bump('r', 1)">+1</button>
+          </div>
+        </div>
+      </div>
+      <input class="field mt-2 w-full text-[14px]" placeholder="Note (optional)" aria-label="Set note" [ngModel]="pnote()" (ngModelChange)="pnote.set($event)" />
+
+      <button
+        class="press display mt-3 w-full rounded-[18px] py-5 text-[22px] text-black disabled:opacity-30"
+        [style.background]="typeColor[type()]"
+        [disabled]="pw() == null || !pr()"
+        (click)="logSet()"
+      >
+        Log set {{ ex.sets.length + 1 }}
+      </button>
+
+      <div class="mt-2 flex gap-2">
+        <button class="press flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-card text-ink disabled:opacity-30" aria-label="Previous lift" [disabled]="cur() === 0" (click)="go(cur() - 1)">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
+        @if (cur() < draft.exercises.length - 1) {
+          <button class="press flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl bg-card px-4 text-left text-[14px] text-dim" (click)="go(cur() + 1)">
+            <span class="truncate">Up next: <span class="font-medium text-bright">{{ draft.exercises[cur() + 1].name || 'New lift' }}</span></span>
+            <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
+          </button>
+        } @else {
+          <button class="press flex-1 rounded-2xl bg-card px-4 text-[14px] font-medium text-ink" (click)="addLift()">+ Add lift</button>
+        }
+        <button
+          class="press shrink-0 rounded-2xl border px-4 text-[14px] font-semibold disabled:opacity-30"
+          [style.border-color]="typeColor[type()]"
+          [style.color]="typeInk[type()]"
+          [disabled]="!canSave() || saving()"
+          (click)="save()"
+        >
+          Finish
+        </button>
+      </div>
+      <div class="mt-3 flex justify-between text-[12px] text-dim">
+        <button class="py-1" (click)="removeLift()">Remove this lift</button>
+        <span>Swipe for other lifts</span>
+      </div>
+    </div>
+  </div>
+} @else {
+<a routerLink="/" class="press -mt-2 mb-4 inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-[13px] font-medium text-dim">
+  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
+  Home
+</a>
+<header class="mb-6 flex items-end justify-between gap-3">
+  <div>
+    <p class="label mb-1.5">{{ draft.id != null ? 'Editing session' : isToday() ? 'Today' : 'Logging for' }}</p>
+    <h1 class="page-title">{{ longDate() }}</h1>
+  </div>
+  <label class="press relative shrink-0">
+    <span class="flex h-10 items-center gap-1.5 rounded-xl bg-card px-3.5 text-[13px] font-medium text-ink">
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 18.5zM5 10h14M9 3v4M15 3v4" /></svg>
+      Change
+    </span>
+    <input
+      type="date"
+      aria-label="Session date"
+      class="absolute inset-0 opacity-0"
+      (click)="$any($event.target).showPicker?.()"
+      [(ngModel)]="draft.date"
+      (ngModelChange)="changed()"
+    />
+  </label>
+</header>
+
+@if (store.sessions() != null) {
+  <div class="mb-3 grid grid-cols-2 gap-3">
+    <section
+      class="card rise relative col-span-2 overflow-hidden p-5"
+      [style.background]="'linear-gradient(150deg, ' + typeColor[type()] + '38, ' + typeColor[type()] + '08 65%), var(--color-card)'"
+    >
+      <p class="label">{{ type() === next().type ? 'Next up' : 'Rotation says ' + next().type }}</p>
+      <div class="mt-2 flex items-end justify-between gap-3">
+        <h2 class="display text-[64px]" [style.color]="typeInk[type()]">{{ type() }}</h2>
+        @if (type() !== next().type) {
+          <button class="press mb-1.5 rounded-xl bg-veil px-3.5 py-2 text-[13px] font-medium text-bright" (click)="setType(next().type)">
+            Switch to {{ next().type }}
+          </button>
+        }
+      </div>
+      @if (type() === next().type && next().after; as after) {
+        <p class="mt-2 text-sm text-dim">After {{ after.type }} on {{ fmtDate(after.date) }}</p>
+      }
+
+      @if (!draft.exercises.length && lastOfType(); as last) {
+        <button
+          class="press mt-4 flex w-full items-center justify-between gap-3 rounded-2xl bg-veil px-4 py-3.5 text-left"
+          (click)="repeatLast()"
+        >
+          <span>
+            <span class="block text-[15px] font-semibold text-bright">Repeat last {{ last.type }}</span>
+            <span class="text-[13px] text-dim">{{ fmtDate(last.date) }} · {{ last.exercises.length }} exercises</span>
+          </span>
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-black" [style.background]="typeColor[type()]">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
+          </span>
+        </button>
+      }
+    </section>
+
+    @if (!draft.exercises.length) {
+      <section class="card rise flex flex-col p-4" style="--i: 1">
+        <p class="label">This week</p>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <span class="display text-[52px] text-bright tabular-nums" [appCountUp]="thisWeek().sessions"></span>
+          <span class="text-sm text-dim">session{{ thisWeek().sessions === 1 ? '' : 's' }}</span>
+        </div>
+        <app-sparkline class="mt-auto h-8 pt-3" [values]="sessionsPerWeek()" [color]="typeColor[type()]" />
+      </section>
+
+      <section class="card rise flex flex-col p-4" style="--i: 2">
+        <p class="label">Streak</p>
+        <div class="mt-2 flex items-baseline gap-1.5">
+          <span class="display text-[52px] text-bright tabular-nums" [appCountUp]="streak()"></span>
+          <span class="text-sm text-dim">week{{ streak() === 1 ? '' : 's' }}</span>
+        </div>
+        <div class="mt-auto flex gap-1 pt-3">
+          @for (w of weeks(); track w.start) {
+            <span class="h-2 flex-1 rounded-sm" [style.background]="w.sessions ? typeColor[type()] : 'var(--color-line)'" [style.opacity]="w.sessions ? 0.35 + Math.min(w.sessions, 4) * 0.16 : 1"></span>
+          }
+        </div>
+      </section>
+
+      <section class="card rise col-span-2 p-4" style="--i: 3">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="label">Volume this week</p>
+            <div class="mt-2 flex items-baseline gap-1.5">
+              <span class="display text-[52px] text-bright tabular-nums" [appCountUp]="thisWeek().volume"></span>
+              <span class="text-sm text-dim">lb</span>
+            </div>
+          </div>
+          @if (volumeChange() != null) {
+            <span
+              class="num mt-0.5 rounded-lg px-2 py-1 text-[13px] font-medium"
+              [style.background]="volumeChange()! >= 0 ? '#34d39924' : '#f8717124'"
+              [style.color]="volumeChange()! >= 0 ? 'var(--color-ink-legs)' : 'var(--color-down)'"
+            >{{ volumeChange()! >= 0 ? '+' : '' }}{{ volumeChange() }}%</span>
+          }
+        </div>
+        <app-sparkline class="mt-3 h-12" [values]="volumePerWeek()" [color]="typeColor[type()]" />
+        <p class="mt-2 text-xs text-faint">Last 8 weeks · weight × reps</p>
+      </section>
+    }
+  </div>
+
+  <div class="mb-6 grid grid-cols-5 gap-1.5">
+    @for (t of types; track t) {
+      <button
+        class="press display rounded-xl py-2.5 text-[15px] tracking-wide"
+        [style.background]="type() === t ? typeColor[t] : 'var(--color-card)'"
+        [class.text-black]="type() === t"
+        [class.text-dim]="type() !== t"
+        (click)="setType(t)"
+      >
+        {{ t }}
+      </button>
+    }
+  </div>
+
+  <datalist id="exercise-names">
+    @for (n of names(); track n) {
+      <option [value]="n"></option>
+    }
+  </datalist>
+
+  @for (ex of draft.exercises; track $index; let ei = $index) {
+    <section class="card rise mb-3 p-4" [style.--i]="ei">
+      <div class="mb-1 flex items-center gap-2.5">
+        <span class="num flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold text-black" [style.background]="typeColor[type()]">{{ ei + 1 }}</span>
+        <input
+          class="min-w-0 flex-1 bg-transparent text-[17px] font-semibold tracking-tight text-bright outline-none"
+          list="exercise-names"
+          placeholder="Exercise name"
+          autocapitalize="words"
+          [(ngModel)]="ex.name"
+          (ngModelChange)="changed()"
+        />
+        <button class="-mr-1 rounded-lg p-1.5 text-faint hover:text-dim" aria-label="Remove exercise" (click)="removeExercise(ei)">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+
+      @let last = lastFor(ex.name);
+      @let peak = peakFor(ex.name);
+      @if (last || peak) {
+        <div class="mb-3 ml-[34px] flex flex-wrap gap-x-4 gap-y-0.5 text-[13px] text-dim">
+          @if (last) {
+            <span>Last {{ fmtDate(last.date) }} <span class="num text-ink">{{ fmtSets(last.sets) }}</span></span>
+          }
+          @if (peak) {
+            <span>Best <span class="num text-ink">{{ fmtWeight(peak.best.w) }}×{{ peak.best.r }}</span></span>
+          }
+        </div>
+      }
+
+      <div class="mb-1.5 grid grid-cols-[1.25rem_4.75rem_3.75rem_1fr_1.75rem] gap-2 px-0.5 text-[11px] font-medium text-faint">
+        <span class="text-center">#</span><span class="text-center">lb</span><span class="text-center">Reps</span><span>Note</span><span></span>
+      </div>
+      @for (s of ex.sets; track $index; let si = $index) {
+        <div class="mb-1.5 grid grid-cols-[1.25rem_4.75rem_3.75rem_1fr_1.75rem] items-center gap-2">
+          <span class="num text-center text-[13px] text-faint">{{ si + 1 }}</span>
+          <input type="number" inputmode="decimal" step="any" class="field num text-center text-[15px] text-bright" [(ngModel)]="s.w" (ngModelChange)="changed()" />
+          <input type="number" inputmode="decimal" step="any" class="field num text-center text-[15px] text-bright" [(ngModel)]="s.r" (ngModelChange)="changed()" />
+          <input class="field text-[13px]" placeholder="Optional" [(ngModel)]="s.note" (ngModelChange)="changed()" />
+          <button class="flex h-7 w-7 items-center justify-center rounded-lg text-faint hover:text-dim" aria-label="Remove set" (click)="removeSet(ex, si)">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 12h12" /></svg>
+          </button>
+        </div>
+      }
+      <button class="press mt-1.5 rounded-xl bg-raised px-3.5 py-2 text-[13px] font-medium text-ink" (click)="addSet(ex)">+ Add set</button>
+    </section>
+  }
+
+  <button
+    class="press mb-6 flex w-full items-center justify-center gap-2 rounded-[22px] border border-dashed border-line py-4 text-[15px] font-medium text-ink"
+    (click)="addExercise()"
+  >
+    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+    Add exercise
+  </button>
+
+  @if (draft.exercises.length && draft.id == null) {
+    <button class="press mb-3 w-full rounded-2xl bg-card py-3.5 text-[15px] font-medium text-ink" (click)="setMode('focus')">One lift at a time</button>
+  }
+  <div class="flex gap-2">
+    @if (draft.exercises.length || draft.id != null) {
+      <button class="press rounded-2xl bg-card px-5 py-4 text-[15px] font-medium text-dim" (click)="discard()">
+        {{ confirmDiscard() ? 'Sure?' : draft.id != null ? 'Cancel' : 'Clear' }}
+      </button>
+    }
+    <button
+      class="press display flex-1 rounded-2xl py-4 text-[19px] tracking-wide text-black disabled:opacity-30"
+      [style.background]="typeColor[type()]"
+      [disabled]="!canSave() || saving()"
+      (click)="save()"
+    >
+      {{ draft.id != null ? 'Save changes' : 'Finish ' + type() + ' session' }}
+    </button>
+  </div>
+}
+}
