@@ -17,6 +17,13 @@
       }
     },
     {
+      "name": "muscles",
+      "installMode": "prefetch",
+      "resources": {
+        "files": ["/muscles/**"]
+      }
+    },
+    {
       "name": "assets",
       "installMode": "lazy",
       "updateMode": "prefetch",

@@ -33,6 +33,7 @@ const ALIASES: Record<string, string> = {
   'lat raises': 'Lateral Raise',
   'lateral raises': 'Lateral Raise',
   'face pull': 'Face Pulls',
+  'barbell rows': 'Barbell Row',
   'one arm delt fly': 'Rear Delt Fly',
   'delt fly (one arm)': 'Rear Delt Fly',
   'pec dec': 'Pec Fly',
@@ -46,6 +47,43 @@ export function canonical(name: string): string {
 /** Case-insensitive identity of a lift, for grouping and lookups. */
 export function liftKey(name: string): string {
   return canonical(name).toLowerCase();
+}
+
+/** Lifts with a muscle illustration in public/muscles, named by slugged liftKey. */
+const MUSCLE_ART = new Set(
+  ('back-extension barbell-row bayesian-curls bench-press bicep-curl cable-curl calf-raises-lp ' +
+    'calf-raises-seated chest-supported-row face-pulls hammer-curl high-to-low-fly hip-adductor ' +
+    'incline-db lat-pulldown lat-row lateral-raise leg-curls leg-extensions leg-press low-to-high-fly ' +
+    'mid-fly one-leg-extension pec-fly preacher-curl pull-ups rdl rear-delt-fly reverse-cable-curl ' +
+    'reverse-curl shoulder-press squats t-bar-row t-bar-wide-row tricep-overhead tricep-press-machine ' +
+    'tricep-pushdown').split(' '),
+);
+
+/**
+ * Size (px of the 360px art) of the white patch over the source's top-left logo.
+ * null = no patch: no logo, or the moving art passes through it.
+ */
+const LOGO_PATCH: Record<string, [number, number] | null> = {
+  'cable-curl': null,
+  'calf-raises-lp': null,
+  'bench-press': null,
+  'chest-supported-row': null,
+  'hip-adductor': [66, 32],
+  'preacher-curl': [96, 34],
+  't-bar-row': [118, 44],
+};
+
+export interface MuscleArt {
+  src: string;
+  patch: { w: string; h: string } | null;
+}
+
+export function muscleArt(name: string): MuscleArt | null {
+  const slug = liftKey(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (!MUSCLE_ART.has(slug)) return null;
+  const size = slug in LOGO_PATCH ? LOGO_PATCH[slug] : [96, 40];
+  const pct = (px: number) => `${((px / 360) * 100).toFixed(1)}%`;
+  return { src: `muscles/${slug}.gif`, patch: size && { w: pct(size[0]), h: pct(size[1]) } };
 }
 
 /** Heaviest set, ties broken by reps. */

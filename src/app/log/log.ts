@@ -1,10 +1,11 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { Session, WorkoutType } from '../db';
-import { TYPES, TYPE_COLOR, TYPE_INK, fmtDate, fmtSets, fmtWeight, lastTime, liftKey, nextType, suggestNames, todayIso, weekStats, weekStreak } from '../lifts';
+import { TYPES, TYPE_COLOR, TYPE_INK, fmtDate, fmtSets, fmtWeight, lastTime, liftKey, muscleArt, nextType, suggestNames, todayIso, weekStats, weekStreak } from '../lifts';
 import { SessionStore } from '../session-store';
 import { CountUp } from '../shared/count-up';
 import { Sparkline } from '../shared/sparkline';
@@ -32,7 +33,7 @@ type Mode = 'focus' | 'list';
 
 @Component({
   selector: 'app-log',
-  imports: [FormsModule, RouterLink, CountUp, Sparkline],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, CountUp, Sparkline],
   templateUrl: './log.html',
 })
 export class Log {
@@ -48,6 +49,7 @@ export class Log {
   protected readonly fmtDate = fmtDate;
   protected readonly fmtSets = fmtSets;
   protected readonly fmtWeight = fmtWeight;
+  protected readonly muscleArt = muscleArt;
 
   protected draft: Draft = loadDraft() ?? blankDraft();
   /** Bumped on every edit so computeds that read the draft re-run. */
@@ -62,6 +64,7 @@ export class Log {
   protected readonly cur = signal(0);
   protected readonly current = computed(() => (this.rev(), this.draft.exercises[this.cur()]));
   protected readonly editingName = signal(false);
+  protected readonly showArt = signal(false);
   /** The set about to be logged in focus mode. */
   protected readonly pw = signal<number | null>(null);
   protected readonly pr = signal<number | null>(null);

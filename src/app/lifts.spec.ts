@@ -1,6 +1,6 @@
 import { SEED_SESSIONS } from './data/seed';
 import { Session } from './db';
-import { canonical, est1rm, fmtSets, lastTime, liftHistory, nextType, peaks, sessionPrs, suggestNames, topSet, weekStats, weekStreak } from './lifts';
+import { canonical, est1rm, fmtSets, lastTime, liftHistory, muscleArt, nextType, peaks, sessionPrs, suggestNames, topSet, weekStats, weekStreak } from './lifts';
 
 const s = (id: number, date: string, type: Session['type'], ex: [string, [number, number][]][]): Session => ({
   id,
@@ -97,5 +97,14 @@ describe('lifts', () => {
     expect(weeks.map((w) => w.sessions)).toEqual([0, 2, 1, 0]);
     expect(weeks[1].volume).toBe(500 + 1000);
     expect(weekStreak(weeks)).toBe(2);
+  });
+
+  it('has muscle art for every seeded lift', () => {
+    const names = new Set(SEED_SESSIONS.flatMap((s) => s.exercises.map((e) => e.name)));
+    expect([...names].filter((n) => !muscleArt(n))).toEqual([]);
+    expect(muscleArt('Pec Dec')?.src).toBe('muscles/pec-fly.gif');
+    expect(muscleArt('Calf Raises (LP)')).toEqual({ src: 'muscles/calf-raises-lp.gif', patch: null });
+    expect(muscleArt('Lat Pulldown')?.patch).toEqual({ w: '26.7%', h: '11.1%' });
+    expect(muscleArt('Something new')).toBeNull();
   });
 });

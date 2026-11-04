@@ -43,24 +43,33 @@
 
       @let lastF = lastFor(ex.name);
       @let peakF = peakFor(ex.name);
-      <p class="mt-3 text-[14px] leading-relaxed text-dim">
-        @if (lastF) {
-          Last time {{ fmtDate(lastF.date) }} <span class="num text-ink">{{ fmtSets(lastF.sets) }}</span>
-        } @else if (ex.name.trim()) {
-          First time logging this lift.
-        }
-        @if (peakF) {
-          · Best <span class="num text-ink">{{ fmtWeight(peakF.best.w) }}×{{ peakF.best.r }}</span>
-        }
-      </p>
+      <div class="flex items-start gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="mt-3 text-[14px] leading-relaxed text-dim">
+            @if (lastF) {
+              Last time {{ fmtDate(lastF.date) }} <span class="num text-ink">{{ fmtSets(lastF.sets) }}</span>
+            } @else if (ex.name.trim()) {
+              First time logging this lift.
+            }
+            @if (peakF) {
+              · Best <span class="num text-ink">{{ fmtWeight(peakF.best.w) }}×{{ peakF.best.r }}</span>
+            }
+          </p>
 
-      <div class="mt-4 flex flex-wrap gap-1.5">
-        @for (s of ex.sets; track $index; let si = $index) {
-          <button class="press num rounded-[10px] bg-card px-2.5 py-2 text-[14px] text-bright" [attr.aria-label]="'Edit set ' + (si + 1)" (click)="unlog(si)">
-            <span class="text-dim">{{ si + 1 }} ·</span> {{ s.w == null ? '–' : fmtWeight(s.w) }}×{{ s.r ?? '–' }}
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            @for (s of ex.sets; track $index; let si = $index) {
+              <button class="press num rounded-[10px] bg-card px-2.5 py-2 text-[14px] text-bright" [attr.aria-label]="'Edit set ' + (si + 1)" (click)="unlog(si)">
+                <span class="text-dim">{{ si + 1 }} ·</span> {{ s.w == null ? '–' : fmtWeight(s.w) }}×{{ s.r ?? '–' }}
+              </button>
+            }
+            <span class="num rounded-[10px] border border-dashed border-line px-2.5 py-[7px] text-[14px] text-dim">{{ ex.sets.length + 1 }} · …</span>
+          </div>
+        </div>
+        @if (!editingName() && muscleArt(ex.name); as art) {
+          <button class="press mt-3 w-[92px] shrink-0" aria-label="Show muscles worked" (click)="showArt.set(true)">
+            <ng-container *ngTemplateOutlet="artCard; context: { $implicit: art }" />
           </button>
         }
-        <span class="num rounded-[10px] border border-dashed border-line px-2.5 py-[7px] text-[14px] text-dim">{{ ex.sets.length + 1 }} · …</span>
       </div>
     </div>
 
@@ -137,6 +146,16 @@
       </div>
     </div>
   </div>
+
+  @if (showArt() && muscleArt(ex.name); as art) {
+    <!-- Outside the swipe area so taps here don't change lift. Tap anywhere to close. -->
+    <button class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-black/80 px-4" aria-label="Close muscles" (click)="showArt.set(false)">
+      <span class="display text-[28px] text-white">{{ ex.name }}</span>
+      <span class="block w-full max-w-[420px]">
+        <ng-container *ngTemplateOutlet="artCard; context: { $implicit: art }" />
+      </span>
+    </button>
+  }
 } @else {
 <a routerLink="/" class="press -mt-2 mb-4 inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-[13px] font-medium text-dim">
   <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -340,3 +359,13 @@
   </div>
 }
 }
+
+<!-- White card so the art's white background reads as one shape; the patch hides the source's corner logo. -->
+<ng-template #artCard let-art>
+  <span class="relative block overflow-hidden rounded-[18px] bg-white">
+    <img [src]="art.src" alt="" class="block aspect-square w-full" />
+    @if (art.patch; as p) {
+      <span class="absolute left-0 top-0 bg-white" [style.width]="p.w" [style.height]="p.h"></span>
+    }
+  </span>
+</ng-template>
