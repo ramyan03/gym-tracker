@@ -1,7 +1,8 @@
 import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Chart, Filler, LineController, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
-import { Peak, TYPE_COLOR, TYPE_INK, est1rm, fmtDate, fmtWeight } from '../lifts';
+import { WorkoutType } from '../db';
+import { Peak, TYPES, TYPE_COLOR, TYPE_INK, est1rm, fmtDate, fmtWeight, nextType } from '../lifts';
 import { SessionStore } from '../session-store';
 import { Theme } from '../theme';
 import { CountUp } from '../shared/count-up';
@@ -47,12 +48,25 @@ export class Progress {
     return q ? this.allPeaks().filter((p) => p.name.toLowerCase().includes(q)) : this.allPeaks();
   });
 
-  /** The picked lift, else the most-logged one. */
+  /** Day types that have at least one lift, each lift counted under the type it's done on most. */
+  protected readonly types = computed(() => TYPES.filter((t) => this.allPeaks().some((p) => p.type === t)));
+  private readonly pickedType = signal<WorkoutType | null>(null);
+  /** The chosen type, else the next workout's. */
+  protected readonly type = computed(() => {
+    const want = this.pickedType() ?? nextType(this.store.all()).type;
+    const types = this.types();
+    return types.includes(want) ? want : types[0];
+  });
+  /** Lifts of this type, most-logged first; swiping steps through these. */
+  protected readonly inType = computed(() => this.allPeaks().filter((p) => p.type === this.type()));
+
+  /** The picked lift if it's in this type, else the most-logged one. */
   protected readonly selected = computed<Peak | undefined>(() => {
     const key = this.picked();
-    const all = this.allPeaks();
-    return all.find((p) => p.key === key) ?? all[0];
+    const list = this.inType();
+    return list.find((p) => p.key === key) ?? list[0];
   });
+  protected readonly index = computed(() => this.inType().findIndex((p) => p.key === this.selected()?.key));
 
   protected readonly points = computed(() => {
     const p = this.selected();
@@ -82,7 +96,32 @@ export class Progress {
     return fmtDate(iso).split(' ')[1];
   }
 
+  protected setType(t: WorkoutType) {
+    this.pickedType.set(t);
+    this.picked.set(null);
+    this.showAll.set(false);
+  }
+
+  /** Next or previous lift of this type, wrapping round. */
+  protected step(by: number) {
+    const list = this.inType();
+    if (!list.length) return;
+    this.picked.set(list[(this.index() + by + list.length) % list.length].key);
+    this.showAll.set(false);
+  }
+
+  private touchX = 0;
+  protected touchStart(e: TouchEvent) {
+    this.touchX = e.touches[0].clientX;
+  }
+  protected touchEnd(e: TouchEvent) {
+    const dx = e.changedTouches[0].clientX - this.touchX;
+    if (Math.abs(dx) > 70) this.step(dx < 0 ? 1 : -1);
+  }
+
   protected pick(key: string) {
+    const peak = this.allPeaks().find((p) => p.key === key);
+    if (peak) this.pickedType.set(peak.type);
     this.picked.set(key);
     this.pickerOpen.set(false);
     this.showAll.set(false);

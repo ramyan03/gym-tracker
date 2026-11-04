@@ -5,10 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { Session, WorkoutType } from '../db';
-import { TYPES, TYPE_COLOR, TYPE_INK, fmtDate, fmtSets, fmtWeight, lastTime, liftKey, muscleArt, nextType, suggestNames, todayIso, weekStats, weekStreak } from '../lifts';
+import { TYPES, TYPE_COLOR, TYPE_INK, canonical, fmtDate, fmtSets, fmtWeight, lastTime, liftKey, muscleArt, nextType, suggestNames, todayIso } from '../lifts';
 import { SessionStore } from '../session-store';
-import { CountUp } from '../shared/count-up';
-import { Sparkline } from '../shared/sparkline';
 
 interface DraftSet {
   w: number | null;
@@ -33,7 +31,7 @@ type Mode = 'focus' | 'list';
 
 @Component({
   selector: 'app-log',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, CountUp, Sparkline],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink],
   templateUrl: './log.html',
 })
 export class Log {
@@ -56,6 +54,10 @@ export class Log {
   private readonly rev = signal(0);
   protected readonly saving = signal(false);
   protected readonly confirmDiscard = signal(false);
+  /** The X in focus mode asks whether to keep the workout for later or throw it away. */
+  protected readonly exitAsk = signal(false);
+  /** The lift picker sheet in focus mode. */
+  protected readonly addOpen = signal(false);
 
   /** Focus shows one lift at a time; list shows the whole session. Editing a past session always uses the list. */
   private readonly mode = signal<Mode>(loadMode());
@@ -74,6 +76,31 @@ export class Log {
   protected readonly next = computed(() => nextType(this.store.all()));
   protected readonly type = computed(() => (this.rev(), this.draft.type ?? this.next().type));
   protected readonly names = computed(() => suggestNames(this.store.all(), this.type()));
+  /** Every lift done on this type of day, most often first, minus any already in the workout. */
+  protected readonly typeLifts = computed(() => {
+    this.rev();
+    const type = this.type();
+    const have = new Set(this.draft.exercises.map((e) => liftKey(e.name)));
+    const count = new Map<string, { name: string; n: number }>();
+    for (const s of this.store.all()) {
+      if (s.type !== type) continue;
+      for (const ex of s.exercises) {
+        const key = liftKey(ex.name);
+        const entry = count.get(key) ?? { name: canonical(ex.name), n: 0 };
+        entry.n++;
+        count.set(key, entry);
+      }
+    }
+    return [...count.entries()].filter(([k]) => !have.has(k)).sort((a, b) => b[1].n - a[1].n).map(([, e]) => e.name);
+  });
+  /** The next lift: the following one in this workout, else the next not yet done from last time's order. */
+  protected readonly nextUp = computed(() => {
+    this.rev();
+    const list = this.draft.exercises;
+    if (this.cur() < list.length - 1) return list[this.cur() + 1].name || 'New lift';
+    const have = new Set(list.map((e) => liftKey(e.name)));
+    return this.lastOfType()?.exercises.map((e) => e.name).find((n) => !have.has(liftKey(n))) ?? null;
+  });
   protected readonly peaks = computed(() => new Map(this.store.peaks().map((p) => [p.key, p])));
   protected readonly lastOfType = computed(() => {
     const type = this.type();
@@ -90,18 +117,6 @@ export class Log {
       day: 'numeric',
       ...(sameYear ? {} : { year: 'numeric' }),
     });
-  });
-  protected readonly weeks = computed(() => weekStats(this.store.all(), todayIso()));
-  protected readonly streak = computed(() => weekStreak(this.weeks()));
-  protected readonly sessionsPerWeek = computed(() => this.weeks().map((w) => w.sessions));
-  protected readonly volumePerWeek = computed(() => this.weeks().map((w) => w.volume));
-  protected readonly Math = Math;
-  protected readonly thisWeek = computed(() => this.weeks().at(-1)!);
-  /** Percent change in volume against last week; null when last week was empty. */
-  protected readonly volumeChange = computed(() => {
-    const w = this.weeks();
-    const prev = w.at(-2)!.volume;
-    return prev ? Math.round(((w.at(-1)!.volume - prev) / prev) * 100) : null;
   });
   protected readonly canSave = computed(() => (this.rev(), toSession(this.draft).exercises.length > 0));
 
@@ -231,6 +246,36 @@ export class Log {
     this.go(this.cur());
   }
 
+  /** From the picker: the first lift starts the workout, later ones are added to it. */
+  protected pickLift(name: string) {
+    this.addOpen.set(false);
+    if (!this.draft.exercises.length) {
+      this.draft.type = this.type();
+      this.mode.set('focus');
+    }
+    this.draft.exercises.push({ name, sets: [] });
+    this.changed();
+    this.go(this.draft.exercises.length - 1);
+  }
+
+  protected newLift() {
+    this.addOpen.set(false);
+    if (!this.draft.exercises.length) this.draft.type = this.type();
+    this.mode.set('focus');
+    this.addLift();
+  }
+
+  protected copyLast() {
+    this.mode.set('focus');
+    this.repeatLast();
+  }
+
+  protected goNext() {
+    if (this.cur() < this.draft.exercises.length - 1) return this.go(this.cur() + 1);
+    const name = this.nextUp();
+    if (name) this.pickLift(name);
+  }
+
   protected nameDone() {
     if (!this.current()?.name.trim()) return;
     this.editingName.set(false);
@@ -275,6 +320,11 @@ export class Log {
     const wasEditing = this.draft.id != null;
     this.replace(blankDraft());
     if (wasEditing) this.router.navigate(['/log']);
+  }
+
+  protected discardAndLeave() {
+    this.replace(blankDraft());
+    this.router.navigate(['/']);
   }
 
   private replace(d: Draft) {

@@ -1,9 +1,9 @@
 @if (store.sessions() != null && focus() && current(); as ex) {
   <div class="flex min-h-[calc(100dvh-4.5rem)] flex-col" (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
     <div class="-mt-2 flex items-center justify-between gap-3">
-      <a routerLink="/" aria-label="Home (your session is kept)" class="press flex h-11 w-11 items-center justify-center rounded-[14px] bg-card text-ink">
+      <button aria-label="Leave workout" class="press flex h-11 w-11 items-center justify-center rounded-[14px] bg-card text-ink" (click)="exitAsk.set(true)">
         <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-      </a>
+      </button>
       <span class="display text-[18px]" [style.color]="typeInk[type()]">{{ type() }} · Lift {{ cur() + 1 }} of {{ draft.exercises.length }}</span>
       <button class="press rounded-xl px-1 py-2.5 text-[13px] font-medium text-dim" (click)="setMode('list')">List view</button>
     </div>
@@ -118,18 +118,18 @@
         Log set {{ ex.sets.length + 1 }}
       </button>
 
+      <!-- Next (in last time's order), add another lift, or finish. -->
       <div class="mt-2 flex gap-2">
-        <button class="press flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-card text-ink disabled:opacity-30" aria-label="Previous lift" [disabled]="cur() === 0" (click)="go(cur() - 1)">
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
-        </button>
-        @if (cur() < draft.exercises.length - 1) {
-          <button class="press flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl bg-card px-4 text-left text-[14px] text-dim" (click)="go(cur() + 1)">
-            <span class="truncate">Up next: <span class="font-medium text-bright">{{ draft.exercises[cur() + 1].name || 'New lift' }}</span></span>
-            <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
+        @if (nextUp(); as nx) {
+          <button class="press flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl bg-card px-4 py-2.5 text-left" (click)="goNext()">
+            <span class="min-w-0">
+              <span class="block text-[12px] text-dim">Next</span>
+              <span class="block truncate text-[15px] font-semibold text-bright">{{ nx }}</span>
+            </span>
+            <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-ink" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
           </button>
-        } @else {
-          <button class="press flex-1 rounded-2xl bg-card px-4 text-[14px] font-medium text-ink" (click)="addLift()">+ Add lift</button>
         }
+        <button class="press shrink-0 rounded-2xl bg-card px-4 text-[14px] font-medium text-ink" [class.flex-1]="!nextUp()" (click)="addOpen.set(true)">+ Add</button>
         <button
           class="press shrink-0 rounded-2xl border px-4 text-[14px] font-semibold disabled:opacity-30"
           [style.border-color]="typeColor[type()]"
@@ -142,10 +142,41 @@
       </div>
       <div class="mt-3 flex justify-between text-[12px] text-dim">
         <button class="py-1" (click)="removeLift()">Remove this lift</button>
-        <span>Swipe for other lifts</span>
+        @if (cur() > 0) {
+          <button class="py-1" (click)="go(cur() - 1)">‹ Previous lift</button>
+        }
       </div>
     </div>
   </div>
+
+  @if (addOpen()) {
+    <div class="fixed inset-0 z-50 flex items-end bg-black/70" (click)="addOpen.set(false)">
+      <div class="max-h-[85dvh] w-full overflow-y-auto rounded-t-[26px] bg-bg p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" (click)="$event.stopPropagation()">
+        <div class="mb-3 flex items-center justify-between">
+          <p class="display text-[24px] text-bright">Add a lift</p>
+          <button class="press rounded-xl px-2 py-2 text-[14px] font-medium text-dim" (click)="addOpen.set(false)">Cancel</button>
+        </div>
+        <ng-container *ngTemplateOutlet="liftList" />
+      </div>
+    </div>
+  }
+
+  @if (exitAsk()) {
+    <div class="fixed inset-0 z-50 flex items-end bg-black/70 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" (click)="exitAsk.set(false)">
+      <div class="card w-full p-4" (click)="$event.stopPropagation()">
+        <p class="display text-[24px] text-bright">Leave this workout?</p>
+        <a routerLink="/" class="press mt-4 block rounded-2xl bg-raised px-4 py-4 text-[15px] font-semibold text-bright">
+          Keep it for later
+          <span class="block text-[13px] font-normal text-dim">Start picks up where you left off</span>
+        </a>
+        <button class="press mt-2 w-full rounded-2xl bg-raised px-4 py-4 text-left text-[15px] font-semibold text-down" (click)="discardAndLeave()">
+          Discard workout
+          <span class="block text-[13px] font-normal text-dim">Throws away the sets you've logged today</span>
+        </button>
+        <button class="press mt-2 w-full py-3 text-[14px] font-medium text-dim" (click)="exitAsk.set(false)">Keep logging</button>
+      </div>
+    </div>
+  }
 
   @if (showArt() && muscleArt(ex.name); as art) {
     <!-- Outside the swipe area so taps here don't change lift. Tap anywhere to close. -->
@@ -156,6 +187,41 @@
       </span>
     </button>
   }
+} @else if (store.sessions() != null && draft.id == null && !draft.exercises.length) {
+  <!-- Start page: copy last time, or pick the first lift. -->
+  <a routerLink="/" class="press -mt-2 mb-4 inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-[13px] font-medium text-dim">
+    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
+    Home
+  </a>
+  <p class="label mb-1.5">{{ isToday() ? 'Today' : 'Logging for' }} · {{ longDate() }}</p>
+  <h1 class="page-title mb-4" [style.color]="typeInk[type()]">{{ type() }} day</h1>
+
+  <div class="mb-4 grid grid-cols-5 gap-1.5">
+    @for (t of types; track t) {
+      <button
+        class="press display rounded-xl py-2.5 text-[15px] tracking-wide"
+        [style.background]="type() === t ? typeColor[t] : 'var(--color-card)'"
+        [class.text-black]="type() === t"
+        [class.text-dim]="type() !== t"
+        (click)="setType(t)"
+      >
+        {{ t }}
+      </button>
+    }
+  </div>
+
+  @if (lastOfType(); as last) {
+    <button class="press mb-6 flex w-full items-center justify-between gap-3 rounded-[22px] px-5 py-4 text-left text-black" [style.background]="typeColor[type()]" (click)="copyLast()">
+      <span>
+        <span class="display block text-[24px]">Copy last {{ last.type }}</span>
+        <span class="text-[13px] font-medium opacity-70">{{ fmtDate(last.date) }} · {{ last.exercises.length }} lifts, same order</span>
+      </span>
+      <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+    </button>
+  }
+
+  <p class="label mb-2">{{ lastOfType() ? 'Or start with one lift' : 'Pick a lift to start' }}</p>
+  <ng-container *ngTemplateOutlet="liftList" />
 } @else {
 <a routerLink="/" class="press -mt-2 mb-4 inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-[13px] font-medium text-dim">
   <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -216,51 +282,6 @@
         </button>
       }
     </section>
-
-    @if (!draft.exercises.length) {
-      <section class="card rise flex flex-col p-4" style="--i: 1">
-        <p class="label">This week</p>
-        <div class="mt-2 flex items-baseline gap-1.5">
-          <span class="display text-[52px] text-bright tabular-nums" [appCountUp]="thisWeek().sessions"></span>
-          <span class="text-sm text-dim">session{{ thisWeek().sessions === 1 ? '' : 's' }}</span>
-        </div>
-        <app-sparkline class="mt-auto h-8 pt-3" [values]="sessionsPerWeek()" [color]="typeColor[type()]" />
-      </section>
-
-      <section class="card rise flex flex-col p-4" style="--i: 2">
-        <p class="label">Streak</p>
-        <div class="mt-2 flex items-baseline gap-1.5">
-          <span class="display text-[52px] text-bright tabular-nums" [appCountUp]="streak()"></span>
-          <span class="text-sm text-dim">week{{ streak() === 1 ? '' : 's' }}</span>
-        </div>
-        <div class="mt-auto flex gap-1 pt-3">
-          @for (w of weeks(); track w.start) {
-            <span class="h-2 flex-1 rounded-sm" [style.background]="w.sessions ? typeColor[type()] : 'var(--color-line)'" [style.opacity]="w.sessions ? 0.35 + Math.min(w.sessions, 4) * 0.16 : 1"></span>
-          }
-        </div>
-      </section>
-
-      <section class="card rise col-span-2 p-4" style="--i: 3">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="label">Volume this week</p>
-            <div class="mt-2 flex items-baseline gap-1.5">
-              <span class="display text-[52px] text-bright tabular-nums" [appCountUp]="thisWeek().volume"></span>
-              <span class="text-sm text-dim">lb</span>
-            </div>
-          </div>
-          @if (volumeChange() != null) {
-            <span
-              class="num mt-0.5 rounded-lg px-2 py-1 text-[13px] font-medium"
-              [style.background]="volumeChange()! >= 0 ? '#34d39924' : '#f8717124'"
-              [style.color]="volumeChange()! >= 0 ? 'var(--color-ink-legs)' : 'var(--color-down)'"
-            >{{ volumeChange()! >= 0 ? '+' : '' }}{{ volumeChange() }}%</span>
-          }
-        </div>
-        <app-sparkline class="mt-3 h-12" [values]="volumePerWeek()" [color]="typeColor[type()]" />
-        <p class="mt-2 text-xs text-faint">Last 8 weeks · weight × reps</p>
-      </section>
-    }
   </div>
 
   <div class="mb-6 grid grid-cols-5 gap-1.5">
@@ -368,4 +389,31 @@
       <span class="absolute left-0 top-0 bg-white" [style.width]="p.w" [style.height]="p.h"></span>
     }
   </span>
+</ng-template>
+
+<!-- Lifts for this type of day: picture, name and last time. Tapping one starts or adds it. -->
+<ng-template #liftList>
+  @for (n of typeLifts(); track n) {
+    @let last = lastFor(n);
+    <button class="press card mb-2 flex w-full items-center gap-3 p-2.5 text-left" (click)="pickLift(n)">
+      <span class="w-16 shrink-0">
+        @if (muscleArt(n); as art) {
+          <ng-container *ngTemplateOutlet="artCard; context: { $implicit: art }" />
+        } @else {
+          <span class="block aspect-square rounded-[18px] bg-raised"></span>
+        }
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-[16px] font-semibold text-bright">{{ n }}</span>
+        @if (last) {
+          <span class="block text-[13px] text-dim">{{ fmtDate(last.date) }} · <span class="num text-ink">{{ fmtSets(last.sets) }}</span></span>
+        }
+      </span>
+      <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 text-dim" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
+    </button>
+  }
+  <button class="press mb-2 flex w-full items-center gap-3 rounded-[22px] border border-dashed border-line p-4 text-[15px] font-medium text-ink" (click)="newLift()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+    New lift (type a name)
+  </button>
 </ng-template>

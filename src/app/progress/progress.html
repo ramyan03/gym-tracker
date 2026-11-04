@@ -1,7 +1,40 @@
+@if (types().length) {
+  <div class="mb-3 grid gap-1.5" [style.grid-template-columns]="'repeat(' + types().length + ', minmax(0, 1fr))'">
+    @for (t of types(); track t) {
+      <button
+        class="press display rounded-xl py-2.5 text-[15px] tracking-wide"
+        [style.background]="type() === t ? typeColor[t] : 'var(--color-card)'"
+        [class.text-black]="type() === t"
+        [class.text-dim]="type() !== t"
+        (click)="setType(t)"
+      >
+        {{ t }}
+      </button>
+    }
+  </div>
+  <!-- Step through this type's lifts: arrows, dots, or swipe anywhere below. -->
+  <div class="mb-5 flex items-center gap-2">
+    <button class="press flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card text-ink" aria-label="Previous lift" (click)="step(-1)">
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6" /></svg>
+    </button>
+    <div class="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-1.5">
+      @for (l of inType(); track l.key; let i = $index) {
+        <button class="py-2" [attr.aria-label]="l.name" (click)="pick(l.key)">
+          <span class="block h-1.5 rounded-full transition-all" [class.w-5]="i === index()" [class.w-1.5]="i !== index()" [style.background]="i === index() ? typeColor[type()] : 'var(--color-line)'"></span>
+        </button>
+      }
+    </div>
+    <button class="press flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card text-ink" aria-label="Next lift" (click)="step(1)">
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6" /></svg>
+    </button>
+  </div>
+}
+
+<div (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
 @if (selected(); as p) {
   <header class="rise mb-5">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-[13px] font-medium" [style.color]="typeInk[p.type]">{{ p.type }} · {{ p.sessions }} session{{ p.sessions === 1 ? '' : 's' }}</p>
+      <p class="text-[13px] font-medium" [style.color]="typeInk[p.type]">{{ index() + 1 }} of {{ inType().length }} · {{ p.sessions }} session{{ p.sessions === 1 ? '' : 's' }}</p>
       <button class="press flex items-center gap-1.5 rounded-xl bg-card px-3.5 py-2.5 text-[13px] font-medium text-ink" (click)="pickerOpen.set(true)">
         <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5" /></svg>
         All lifts
@@ -67,6 +100,7 @@
 } @else if (store.sessions() != null) {
   <p class="text-dim">No lifts logged yet.</p>
 }
+</div>
 
 @if (pickerOpen()) {
   <div class="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm" (click)="pickerOpen.set(false)">
