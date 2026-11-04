@@ -1,4 +1,4 @@
-// Seeded into IndexedDB on first run. Source: gym-log-2026.html (May–Oct 2026).
+// Seeded into IndexedDB on first run. Source: gym-log-2026.html (May–Nov 2026).
 // Names are kept exactly as logged; lifts.ts maps variants to one canonical name.
 import { SeedSession } from '../db';
 
@@ -426,5 +426,57 @@ export const SEED_SESSIONS: SeedSession[] = [
     { name: "Shoulder Press", sets: [{ w: 120, r: 10 }, { w: 160, r: 6 }, { w: 150, r: 6 }] },
     { name: "High to Low Fly", sets: [{ w: 200, r: 8 }, { w: 200, r: 7 }] },
     { name: "Tricep Overhead", sets: [{ w: 110, r: 9 }, { w: 120, r: 5 }] },
+  ] },
+  { date: '2026-10-26', type: 'Pull', exercises: [
+    { name: "Lat Pulldown", sets: [{ w: 160, r: 10 }, { w: 220, r: 6 }, { w: 220, r: 6 }] },
+    { name: "Lat Row", sets: [{ w: 210, r: 5 }, { w: 210, r: 5 }, { w: 210, r: 5 }] },
+    { name: "Delt Fly (One Arm)", sets: [{ w: 90, r: 10 }, { w: 110, r: 7 }] },
+    { name: "Chest Supported Row", sets: [{ w: 150, r: 8 }, { w: 170, r: 5 }] },
+    { name: "Preacher Curl", sets: [{ w: 30, r: 6 }, { w: 30, r: 6 }] },
+    { name: "Hammer Curl", sets: [{ w: 35, r: 8 }, { w: 35, r: 8 }] },
+  ] },
+  { date: '2026-10-27', type: 'Legs', exercises: [
+    { name: "RDL", sets: [{ w: 135, r: 10 }, { w: 225, r: 7 }, { w: 225, r: 7 }] },
+    { name: "Leg Press", sets: [{ w: 360, r: 7 }, { w: 360, r: 4 }] },
+    { name: "Calf Raises (Seated)", sets: [{ w: 215, r: 8 }, { w: 205, r: 6 }] },
+    { name: "Leg Curls", sets: [{ w: 220, r: 8 }, { w: 220, r: 7 }] },
+    { name: "Hip Adductor", sets: [{ w: 305, r: 15 }, { w: 305, r: 15 }, { w: 305, r: 11 }] },
+    { name: "Back Extension", sets: [{ w: 290, r: 10 }, { w: 290, r: 10 }, { w: 300, r: 6 }] },
+  ] },
+  { date: '2026-10-29', type: 'Push', exercises: [
+    { name: "Incline DB", sets: [{ w: 55, r: 10 }, { w: 75, r: 9 }, { w: 80, r: 5 }] },
+    { name: "Pec Fly", sets: [{ w: 110, r: 10 }, { w: 190, r: 7 }, { w: 190, r: 6 }] },
+    { name: "Lat Raises", sets: [{ w: 30, r: 10 }, { w: 35, r: 6 }, { w: 35, r: 6 }] },
+    { name: "Tricep Overhead", sets: [{ w: 115, r: 10 }, { w: 120, r: 9 }, { w: 125, r: 6 }] },
+    { name: "High to Low Fly", sets: [{ w: 230, r: 9 }, { w: 230, r: 8 }] },
+  ] },
+  { date: '2026-10-30', type: 'Pull', exercises: [
+    { name: "Pull Ups", sets: [{ w: -25, r: 8 }, { w: -10, r: 5 }, { w: -10, r: 4 }] },
+    { name: "Barbell Row", sets: [{ w: 135, r: 10 }, { w: 155, r: 8 }, { w: 155, r: 6 }] },
+    { name: "Face Pulls", sets: [{ w: 205, r: 8 }, { w: 205, r: 8 }, { w: 210, r: 5 }] },
+    { name: "Reverse Cable Curl", sets: [{ w: 75, r: 8 }, { w: 85, r: 4 }, { w: 85, r: 3 }] },
+    { name: "Cable Curl", sets: [{ w: 85, r: 8 }, { w: 85, r: 8 }, { w: 90, r: 6 }] },
+  ] },
+  { date: '2026-10-31', type: 'Legs', exercises: [
+    { name: "Leg Press", sets: [{ w: 270, r: 10 }, { w: 360, r: 8 }, { w: 360, r: 5 }] },
+    { name: "Leg Curls", sets: [{ w: 240, r: 8 }, { w: 250, r: 6 }, { w: 250, r: 5 }] },
+    { name: "Back Extension", sets: [{ w: 290, r: 10 }, { w: 300, r: 10 }, { w: 305, r: 8 }] },
+    { name: "Calf Raises (LP)", sets: [{ w: 350, r: 10 }, { w: 370, r: 10 }, { w: 390, r: 9 }] },
+    { name: "Hip Adductor", sets: [{ w: 305, r: 15 }, { w: 305, r: 15 }, { w: 305, r: 12 }] },
+  ] },
+  { date: '2026-11-01', type: 'Push', exercises: [
+    { name: "Incline DB", sets: [{ w: 55, r: 10 }, { w: 80, r: 5 }, { w: 80, r: 4 }] },
+    { name: "Shoulder Press", sets: [{ w: 160, r: 9 }, { w: 175, r: 6 }, { w: 180, r: 5 }] },
+    { name: "Lateral Raise", sets: [{ w: 35, r: 8 }, { w: 35, r: 8 }, { w: 35, r: 6 }] },
+    { name: "Tricep Overhead", sets: [{ w: 120, r: 9 }, { w: 130, r: 6 }, { w: 130, r: 6 }] },
+    { name: "Pec Fly", sets: [{ w: 170, r: 9 }, { w: 180, r: 7 }, { w: 180, r: 6 }] },
+  ] },
+  { date: '2026-11-02', type: 'Pull', exercises: [
+    { name: "Lat Pulldown", sets: [{ w: 150, r: 10 }, { w: 200, r: 8 }, { w: 220, r: 5 }] },
+    { name: "Lat Row", sets: [{ w: 200, r: 9 }, { w: 215, r: 6 }, { w: 215, r: 5 }] },
+    { name: "Rear Delt Fly", sets: [{ w: 100, r: 10 }, { w: 120, r: 8 }, { w: 120, r: 7 }] },
+    { name: "Chest Supported Row", sets: [{ w: 150, r: 8 }, { w: 150, r: 8 }] },
+    { name: "Hammer Curl", sets: [{ w: 37.5, r: 10 }, { w: 40, r: 8 }, { w: 40, r: 7 }] },
+    { name: "Preacher Curl", sets: [{ w: 30, r: 8 }, { w: 30, r: 6 }] },
   ] },
 ];

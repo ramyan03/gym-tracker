@@ -34,6 +34,7 @@ const ALIASES: Record<string, string> = {
   'lateral raises': 'Lateral Raise',
   'face pull': 'Face Pulls',
   'one arm delt fly': 'Rear Delt Fly',
+  'delt fly (one arm)': 'Rear Delt Fly',
   'pec dec': 'Pec Fly',
 };
 

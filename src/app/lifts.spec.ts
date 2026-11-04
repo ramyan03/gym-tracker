@@ -72,7 +72,7 @@ describe('lifts', () => {
   });
 
   it('seed data is well-formed', () => {
-    expect(SEED_SESSIONS.length).toBe(63);
+    expect(SEED_SESSIONS.length).toBe(70);
     for (const session of SEED_SESSIONS) {
       expect(session.date).toMatch(/^2026-\d{2}-\d{2}$/);
       for (const ex of session.exercises) expect(ex.sets.length).toBeGreaterThan(0);
