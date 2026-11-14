@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { liveQuery } from 'dexie';
 import { from } from 'rxjs';
 import { Session, db } from './db';
-import { TYPES, liftHistory, peaks } from './lifts';
+import { TYPES, liftHistory, peaks, scoreSessions } from './lifts';
 
 const TYPES_SET = new Set<string>(TYPES);
 
@@ -17,6 +17,8 @@ export class SessionStore {
   readonly all = computed(() => this.sessions() ?? []);
   readonly history = computed(() => liftHistory(this.all()));
   readonly peaks = computed(() => peaks(this.history()));
+  /** Strength score per session id. */
+  readonly scores = computed(() => scoreSessions(this.all()));
 
   readonly byDate = computed(() => {
     const map = new Map<string, Session[]>();
@@ -36,17 +38,29 @@ export class SessionStore {
     return db.sessions.delete(id);
   }
 
-  exportJson(): string {
-    const sessions = this.all().map(({ id, ...rest }) => rest);
+  /** Every session, or just the ones whose ids are given. */
+  exportJson(ids?: ReadonlySet<number>): string {
+    const sessions = this.all()
+      .filter((s) => !ids || ids.has(s.id!))
+      .map(({ id, ...rest }) => rest);
     return JSON.stringify({ app: 'gym-log', version: 1, exported: new Date().toISOString(), sessions }, null, 1);
   }
 
-  /** Replaces every session with the file's contents. Throws on anything malformed. */
-  async importJson(text: string): Promise<number> {
+  /**
+   * 'merge' adds sessions this device doesn't have (same date and type counts as had);
+   * 'replace' swaps everything for the file's contents. Throws on anything malformed.
+   */
+  async importJson(text: string, mode: 'merge' | 'replace'): Promise<number> {
     const parsed = JSON.parse(text);
     const sessions: unknown = Array.isArray(parsed) ? parsed : parsed?.sessions;
     if (!Array.isArray(sessions) || !sessions.every(isSession)) throw new Error('Not a gym-log export');
     const clean = sessions.map(({ date, type, exercises }) => ({ date, type, exercises }));
+    if (mode === 'merge') {
+      const have = new Set(this.all().map((s) => `${s.date}|${s.type}`));
+      const fresh = clean.filter((s) => !have.has(`${s.date}|${s.type}`));
+      await db.sessions.bulkAdd(fresh);
+      return fresh.length;
+    }
     await db.transaction('rw', db.sessions, async () => {
       await db.sessions.clear();
       await db.sessions.bulkAdd(clean);

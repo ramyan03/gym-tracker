@@ -140,10 +140,17 @@
           Finish
         </button>
       </div>
-      <div class="mt-3 flex justify-between text-[12px] text-dim">
-        <button class="py-1" (click)="removeLift()">Remove this lift</button>
+      <div class="mt-2.5 flex items-center justify-between gap-2 text-[13px] font-medium">
+        <button
+          class="press flex items-center gap-1.5 rounded-xl px-3 py-2"
+          [class]="confirmRemove() ? 'bg-down text-white' : 'bg-down/12 text-down'"
+          (click)="removeLift()"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+          {{ confirmRemove() ? 'Tap again to remove' : 'Remove lift' }}
+        </button>
         @if (cur() > 0) {
-          <button class="py-1" (click)="go(cur() - 1)">‹ Previous lift</button>
+          <button class="press rounded-xl px-2 py-2 text-dim" (click)="go(cur() - 1)">‹ Previous lift</button>
         }
       </div>
     </div>
@@ -166,8 +173,8 @@
       <div class="card w-full p-4" (click)="$event.stopPropagation()">
         <p class="display text-[24px] text-bright">Leave this workout?</p>
         <a routerLink="/" class="press mt-4 block rounded-2xl bg-raised px-4 py-4 text-[15px] font-semibold text-bright">
-          Keep it for later
-          <span class="block text-[13px] font-normal text-dim">Start picks up where you left off</span>
+          Keep it going
+          <span class="block text-[13px] font-normal text-dim">Browse the app; it stays in a bar at the bottom</span>
         </a>
         <button class="press mt-2 w-full rounded-2xl bg-raised px-4 py-4 text-left text-[15px] font-semibold text-down" (click)="discardAndLeave()">
           Discard workout
@@ -316,8 +323,9 @@
           [(ngModel)]="ex.name"
           (ngModelChange)="changed()"
         />
-        <button class="-mr-1 rounded-lg p-1.5 text-faint hover:text-dim" aria-label="Remove exercise" (click)="removeExercise(ei)">
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        <button class="press -mr-1 flex items-center gap-1 rounded-lg bg-down/12 px-2 py-1.5 text-[12px] font-medium text-down" aria-label="Remove exercise" (click)="removeExercise(ei)">
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+          Remove
         </button>
       </div>
 

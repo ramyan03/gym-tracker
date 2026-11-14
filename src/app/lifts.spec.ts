@@ -1,6 +1,6 @@
 import { SEED_SESSIONS } from './data/seed';
 import { Session } from './db';
-import { canonical, est1rm, fmtSets, lastTime, liftHistory, muscleArt, nextType, peaks, sessionPrs, suggestNames, topSet, weekStats, weekStreak } from './lifts';
+import { allNotes, canonical, freshness, scoreSessions, topTwo, est1rm, fmtSets, lastTime, liftHistory, muscleArt, nextType, peaks, sessionPrs, suggestNames, topSet, weekStats, weekStreak } from './lifts';
 
 const s = (id: number, date: string, type: Session['type'], ex: [string, [number, number][]][]): Session => ({
   id,
@@ -106,5 +106,63 @@ describe('lifts', () => {
     expect(muscleArt('Calf Raises (LP)')).toEqual({ src: 'muscles/calf-raises-lp.gif', patch: null });
     expect(muscleArt('Lat Pulldown')?.patch).toEqual({ w: '26.7%', h: '11.1%' });
     expect(muscleArt('Something new')).toBeNull();
+  });
+
+  describe('strength score', () => {
+    it('scores a repeat of last time as 100 and a first-time lift as unscored', () => {
+      const scores = scoreSessions([
+        s(1, '2026-10-01', 'Push', [['Bench Press', [[135, 10], [135, 10]]]]),
+        s(2, '2026-10-08', 'Push', [['Bench Press', [[135, 10], [135, 10]]]]),
+      ]);
+      expect(scores.get(1)!.points).toBeNull();
+      expect(scores.get(1)!.lifts[0].points).toBeNull();
+      expect(scores.get(2)!.points).toBe(100);
+    });
+
+    it('counts only the two best sets, reps included', () => {
+      expect(topTwo([{ w: 100, r: 5 }, { w: 90, r: 12 }, { w: 95, r: 8 }]).map((x) => x.w)).toEqual([90, 95]);
+      const scores = scoreSessions([
+        s(1, '2026-10-01', 'Push', [['Bench Press', [[135, 10], [135, 10], [135, 10]]]]),
+        // Same two best sets, a weak third set: still a match.
+        s(2, '2026-10-08', 'Push', [['Bench Press', [[135, 10], [135, 10], [95, 6]]]]),
+      ]);
+      expect(scores.get(2)!.points).toBe(100);
+    });
+
+    it('rewards a PR on a regular lift more than one on a lift last done months ago', () => {
+      const base = s(1, '2026-06-01', 'Push', [['Bench Press', [[135, 8], [135, 8]]]]);
+      const regular = scoreSessions([base, s(2, '2026-06-08', 'Push', [['Bench Press', [[135, 9], [135, 9]]]])]).get(2)!;
+      const stale = scoreSessions([base, s(2, '2026-10-01', 'Push', [['Bench Press', [[140, 8], [140, 8]]]])]).get(2)!;
+      expect(regular.lifts[0].pr).toBe(true);
+      expect(stale.lifts[0].pr).toBe(true);
+      expect(regular.points!).toBeGreaterThan(stale.points!);
+      expect(stale.points!).toBeGreaterThan(100);
+    });
+
+    it('drops below 100 when weaker, and fades with long gaps', () => {
+      const scores = scoreSessions([
+        s(1, '2026-10-01', 'Pull', [['Lat Pulldown', [[150, 10], [150, 10]]]]),
+        s(2, '2026-10-05', 'Pull', [['Lat Pulldown', [[140, 10], [140, 10]]]]),
+      ]);
+      expect(scores.get(2)!.points!).toBeLessThan(100);
+      expect(freshness(7)).toBe(1);
+      expect(freshness(90)).toBeLessThan(0.4);
+    });
+
+    it('scores bodyweight and assisted sets', () => {
+      const scores = scoreSessions([
+        s(1, '2026-10-01', 'Pull', [['Pull Ups', [[-25, 6], [-25, 6]]]]),
+        s(2, '2026-10-05', 'Pull', [['Pull Ups', [[-15, 6], [-15, 6]]]]),
+      ]);
+      expect(scores.get(2)!.points!).toBeGreaterThan(100);
+    });
+  });
+
+  it('lists set notes newest first', () => {
+    const a = s(1, '2026-10-01', 'Pull', [['Pull Ups', [[0, 5]]]]);
+    const b = s(2, '2026-10-05', 'Pull', [['Pull Ups', [[0, 5]]]]);
+    a.exercises[0].sets[0].note = 'wide';
+    b.exercises[0].sets[0].note = 'neutral';
+    expect(allNotes([a, b]).map((n) => n.set.note)).toEqual(['neutral', 'wide']);
   });
 });

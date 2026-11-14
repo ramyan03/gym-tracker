@@ -301,3 +301,143 @@ export function weekStreak(weeks: WeekStat[]): number {
   }
   return n;
 }
+
+// ---------------------------------------------------------------------------
+// Strength score
+//
+// Each lift is scored against the last time you did it: 100 means you matched
+// it. Only the two best working sets count (by estimated 1RM, so reps matter),
+// which keeps a lighter third set or a back-off set from dragging it down.
+// A PR (top set heavier, or same weight for more reps, than ever before) adds a
+// bonus. Both the change and the bonus fade when the lift hasn't been done for
+// a while, so a PR on something last done months ago counts for less than
+// beating your usual numbers on a lift you do every week.
+// ---------------------------------------------------------------------------
+
+/** Stand-in body weight so bodyweight and assisted sets get a load (lb). Only ratios matter. */
+const NOMINAL_BW = 160;
+/** Gaps up to this many days count fully. */
+const FRESH_DAYS = 21;
+/** Score points per 1% better than last time. */
+const POINTS_PER_PCT = 2;
+const PR_BONUS = 5;
+
+/** Load × Epley factor; bodyweight sets use NOMINAL_BW, assisted sets subtract the help. */
+export function setStrength(s: LiftSet): number {
+  const load = s.w > 0 ? s.w : Math.max(NOMINAL_BW + s.w, 1);
+  return load * (1 + s.r / 30);
+}
+
+/** The two strongest sets, strongest first. */
+export function topTwo(sets: LiftSet[]): LiftSet[] {
+  return [...sets].sort((a, b) => setStrength(b) - setStrength(a)).slice(0, 2);
+}
+
+/** Mean strength of the two best working sets. */
+export function workStrength(sets: LiftSet[]): number | null {
+  const best = topTwo(sets);
+  return best.length ? best.reduce((n, s) => n + setStrength(s), 0) / best.length : null;
+}
+
+/** 1 for a lift done in the last three weeks, falling to 0.35 for one not done in months. */
+export function freshness(gapDays: number): number {
+  return gapDays <= FRESH_DAYS ? 1 : Math.max(0.35, FRESH_DAYS / gapDays);
+}
+
+export function daysBetween(a: string, b: string): number {
+  const t = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((t(b) - t(a)) / 86_400_000);
+}
+
+export interface LiftScore {
+  name: string;
+  /** null for a lift's first time: nothing to compare against. */
+  points: number | null;
+  /** Fractional change in two-set strength since last time. */
+  change: number;
+  gapDays: number | null;
+  pr: boolean;
+  top: LiftSet[];
+  prevTop: LiftSet[];
+  prevDate: string | null;
+}
+
+export interface SessionScore {
+  /** Mean of the scored lifts; null when every lift was new. */
+  points: number | null;
+  lifts: LiftScore[];
+}
+
+/** Scores every session (keyed by id) against what came before it. */
+export function scoreSessions(sessions: Session[]): Map<number, SessionScore> {
+  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date) || (a.id ?? 0) - (b.id ?? 0));
+  const last = new Map<string, { date: string; sets: LiftSet[]; strength: number }>();
+  const best = new Map<string, LiftSet>();
+  const out = new Map<number, SessionScore>();
+
+  for (const s of sorted) {
+    // The same lift twice in one session is scored as one.
+    const merged = new Map<string, { name: string; sets: LiftSet[] }>();
+    for (const ex of s.exercises) {
+      const key = liftKey(ex.name);
+      const entry = merged.get(key) ?? { name: canonical(ex.name), sets: [] };
+      entry.sets.push(...ex.sets);
+      merged.set(key, entry);
+    }
+
+    const lifts: LiftScore[] = [];
+    for (const [key, { name, sets }] of merged) {
+      const strength = workStrength(sets);
+      const top = topSet(sets);
+      if (strength == null || !top) continue;
+      const prev = last.get(key);
+      const prevBest = best.get(key);
+      const pr = !!prevBest && beats(top, prevBest);
+      if (!prev) {
+        lifts.push({ name, points: null, change: 0, gapDays: null, pr: false, top: topTwo(sets), prevTop: [], prevDate: null });
+      } else {
+        const gapDays = daysBetween(prev.date, s.date);
+        const fresh = freshness(gapDays);
+        const change = strength / prev.strength - 1;
+        const raw = 100 + change * 100 * POINTS_PER_PCT * fresh + (pr ? PR_BONUS * fresh : 0);
+        lifts.push({
+          name,
+          points: Math.round(Math.min(150, Math.max(50, raw))),
+          change,
+          gapDays,
+          pr,
+          top: topTwo(sets),
+          prevTop: topTwo(prev.sets),
+          prevDate: prev.date,
+        });
+      }
+    }
+    for (const [key, { sets }] of merged) {
+      const strength = workStrength(sets);
+      const top = topSet(sets);
+      if (strength == null || !top) continue;
+      last.set(key, { date: s.date, sets, strength });
+      const b = best.get(key);
+      if (!b || beats(top, b)) best.set(key, top);
+    }
+
+    const scored = lifts.filter((l) => l.points != null);
+    const points = scored.length ? Math.round(scored.reduce((n, l) => n + l.points!, 0) / scored.length) : null;
+    if (s.id != null) out.set(s.id, { points, lifts });
+  }
+  return out;
+}
+
+/** Every set note, newest first. */
+export function allNotes(sessions: Session[]): { date: string; type: WorkoutType; lift: string; set: LiftSet; id?: number }[] {
+  const notes = [];
+  for (const s of sessions) {
+    for (const ex of s.exercises) {
+      for (const set of ex.sets) if (set.note?.trim()) notes.push({ date: s.date, type: s.type, lift: canonical(ex.name), set, id: s.id });
+    }
+  }
+  return notes.sort((a, b) => b.date.localeCompare(a.date));
+}

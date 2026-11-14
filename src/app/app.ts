@@ -6,10 +6,12 @@ import { filter, map } from 'rxjs';
 import { TYPE_COLOR, nextType } from './lifts';
 import { SessionStore } from './session-store';
 import { Theme } from './theme';
+import { ActiveWorkout } from './active-workout';
+import { ActiveBar } from './shared/active-bar';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink],
+  imports: [RouterOutlet, RouterLink, ActiveBar],
   templateUrl: './app.html',
 })
 export class App {
@@ -21,7 +23,9 @@ export class App {
   protected readonly sections = [
     { path: '/book', label: 'Log book' },
     { path: '/progress', label: 'Progress' },
+    { path: '/profile', label: 'Profile' },
   ];
+  protected readonly workout = inject(ActiveWorkout);
 
   protected readonly updateReady = toSignal(
     this.sw.versionUpdates.pipe(
@@ -42,6 +46,14 @@ export class App {
   /** Home and Log have their own headers; the other sections share the top bar and Start button. */
   protected readonly inSection = computed(() => this.sections.some((s) => s.path === this.path()));
   protected readonly isActive = (path: string) => this.path() === path;
+
+  /** The workout bar, everywhere but Log itself and Home (whose big card turns into Resume). */
+  protected readonly showBar = computed(() => this.workout.active() && this.path() !== '/log' && this.path() !== '/');
+  /** Bottom room so the last thing on a page isn't under the bar or the Start button. */
+  protected readonly bottomPad = computed(() => {
+    if (this.showBar()) return this.workout.collapsed() ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(11rem+env(safe-area-inset-bottom))]';
+    return this.inSection() ? 'pb-[calc(7rem+env(safe-area-inset-bottom))]' : 'pb-[calc(2rem+env(safe-area-inset-bottom))]';
+  });
 
   protected readonly next = computed(() => nextType(this.store.all()).type);
   protected readonly nextColor = computed(() => TYPE_COLOR[this.next()]);

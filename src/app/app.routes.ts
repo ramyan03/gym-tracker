@@ -5,6 +5,7 @@ export const routes: Routes = [
   { path: 'log', title: 'Log', loadComponent: () => import('./log/log').then((m) => m.Log) },
   { path: 'book', title: 'Log book', loadComponent: () => import('./book/book').then((m) => m.Book) },
   { path: 'progress', title: 'Progress', loadComponent: () => import('./progress/progress').then((m) => m.Progress) },
+  { path: 'profile', title: 'Profile', loadComponent: () => import('./profile/profile').then((m) => m.Profile) },
   // Old tab paths, kept so installed shortcuts and bookmarks still land somewhere sensible.
   { path: 'history', redirectTo: '/book?view=list' },
   { path: 'calendar', redirectTo: '/book' },

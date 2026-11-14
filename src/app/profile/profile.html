@@ -1,0 +1,181 @@
+<header class="rise mb-5">
+  <p class="label mb-1.5">
+    @if (first(); as f) {
+      Training since {{ fmtDate(f.date, true) }}
+    } @else {
+      Nothing logged yet
+    }
+  </p>
+  <h1 class="page-title text-[56px]">{{ name }}</h1>
+</header>
+
+@if (store.sessions() != null) {
+  <div class="rise mb-3 grid grid-cols-2 gap-2" style="--i: 1">
+    <div class="card px-4 py-3.5">
+      <span class="display block text-[34px] text-bright">{{ store.all().length }}</span>
+      <span class="text-xs text-dim">sessions</span>
+    </div>
+    <div class="card px-4 py-3.5">
+      <span class="display block text-[34px] text-bright">{{ streak() }}</span>
+      <span class="text-xs text-dim">week streak</span>
+    </div>
+    <div class="card px-4 py-3.5">
+      <span class="display block text-[34px] text-bright">{{ prCount() }}</span>
+      <span class="text-xs text-dim">PRs set</span>
+    </div>
+    <div class="card px-4 py-3.5">
+      <span class="display block text-[34px] text-bright">{{ avgScore() ?? '—' }}</span>
+      <span class="text-xs text-dim">avg score, last 10</span>
+    </div>
+  </div>
+
+  <!-- Strength score: each session's bar rises above 100 (stronger than last time) or drops below it. -->
+  @if (scoreBars().length) {
+    <section class="card rise mb-3 p-4" style="--i: 2" aria-label="Strength score by session">
+      <div class="mb-1 flex items-baseline justify-between gap-3">
+        <h2 class="display text-[22px] text-bright">Strength score</h2>
+        <span class="label">last {{ scoreBars().length }} sessions</span>
+      </div>
+      @if (scorePick(); as p) {
+        <p class="mb-3 text-[13px] text-dim">
+          <button class="text-left" (click)="openSession(p.session.id)">
+            {{ fmtDate(p.session.date) }} · <span [style.color]="typeInk[p.session.type]">{{ p.session.type }}</span> ·
+            <span class="num font-semibold text-bright">{{ p.points }}</span>
+            <span class="ml-1.5 text-ink underline underline-offset-2">Open</span>
+          </button>
+        </p>
+      }
+      <div class="flex gap-2">
+        <div class="num flex h-40 w-7 shrink-0 flex-col justify-between text-right text-[10px] text-dim">
+          <span>{{ 100 + scoreRange() }}</span>
+          <span class="text-ink">100</span>
+          <span>{{ 100 - scoreRange() }}</span>
+        </div>
+        <div class="relative h-40 flex-1">
+          <span class="absolute inset-x-0 top-1/2 h-px bg-line"></span>
+          <div class="absolute inset-0 flex gap-[2px]">
+            @for (b of scoreBars(); track b.session.id; let i = $index) {
+              <button
+                class="relative h-full min-w-0 flex-1"
+                [attr.aria-label]="fmtDate(b.session.date) + ', ' + b.session.type + ', score ' + b.points"
+                (click)="pickedScore.set(i)"
+              >
+                <span
+                  class="absolute inset-x-0 mx-auto max-w-3.5 transition-opacity"
+                  [class]="b.points >= 100 ? 'bottom-1/2 rounded-t-[4px]' : 'top-1/2 rounded-b-[4px]'"
+                  [style.height.%]="barSize(b.points) / 2"
+                  [style.background]="typeColor[b.session.type]"
+                  [style.opacity]="scorePick() === b ? 1 : 0.55"
+                ></span>
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-x-3.5 gap-y-1 pl-9 text-[12px] text-dim">
+        @for (t of scoreTypes(); track t) {
+          <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-[3px]" [style.background]="typeColor[t]"></span>{{ t }}</span>
+        }
+      </div>
+      <p class="mt-3 border-t border-line pt-3 text-[12px] leading-relaxed text-dim">
+        Each lift is scored against the last time you did it, using your two best sets (weight and reps). 100 means you matched it. PRs add a bonus; lifts you hadn't done in weeks count for less.
+      </p>
+    </section>
+  }
+
+  <section class="card rise mb-3 p-4" style="--i: 3" aria-label="Weekly volume">
+    <div class="mb-1 flex items-baseline justify-between gap-3">
+      <h2 class="display text-[22px] text-bright">Weekly volume</h2>
+      <span class="label">lb lifted, last {{ weeks().length }} weeks</span>
+    </div>
+    @if (weekPick(); as w) {
+      <p class="mb-3 text-[13px] text-dim">
+        Week of {{ weekLabel(w.start) }} · <span class="num font-semibold text-bright">{{ w.volume.toLocaleString() }}</span> lb ·
+        {{ w.sessions }} session{{ w.sessions === 1 ? '' : 's' }}
+      </p>
+    }
+    <div class="flex h-32 items-end gap-[2px]">
+      @for (w of weeks(); track w.start; let i = $index) {
+        <button class="flex h-full min-w-0 flex-1 items-end" [attr.aria-label]="'Week of ' + weekLabel(w.start) + ', ' + w.volume + ' pounds'" (click)="pickedWeek.set(i)">
+          <span
+            class="mx-auto block w-full max-w-5 rounded-t-[4px] bg-bright transition-opacity"
+            [style.height.%]="w.volume ? Math.max(3, (w.volume / maxVolume()) * 100) : 0"
+            [style.opacity]="weekPick() === w ? 0.9 : 0.3"
+          ></span>
+        </button>
+      }
+    </div>
+    <div class="mt-1.5 flex justify-between text-[11px] text-dim">
+      <span>{{ weekLabel(weeks()[0].start) }}</span>
+      <span>This week</span>
+    </div>
+  </section>
+
+  <section class="card rise mb-3 p-4" style="--i: 4" aria-label="Training calendar">
+    <div class="mb-3 flex items-baseline justify-between gap-3">
+      <h2 class="display text-[22px] text-bright">Calendar</h2>
+      <span class="label">{{ calCount() }} sessions in {{ calendar().length }} weeks</span>
+    </div>
+    <div class="flex gap-[3px]">
+      <div class="flex shrink-0 flex-col gap-[3px] pt-4 text-[9px] leading-none text-dim">
+        @for (l of ['M', '', 'W', '', 'F', '', 'S']; track $index) {
+          <span class="flex aspect-square w-3 items-center">{{ l }}</span>
+        }
+      </div>
+      @for (c of calendar(); track $index) {
+        <div class="flex min-w-0 flex-1 flex-col gap-[3px]">
+          <span class="h-[13px] overflow-visible text-[9px] leading-none whitespace-nowrap text-dim">{{ c.label }}</span>
+          @for (d of c.days; track d.iso) {
+            @if (d.session; as s) {
+              <button
+                class="aspect-square rounded-[3px]"
+                [style.background]="typeColor[s.type]"
+                [attr.aria-label]="fmtDate(d.iso) + ', ' + s.type"
+                (click)="openSession(s.id)"
+              ></button>
+            } @else {
+              <span class="aspect-square rounded-[3px]" [class]="d.future ? 'bg-transparent' : 'bg-raised'"></span>
+            }
+          }
+        </div>
+      }
+    </div>
+    <div class="mt-3 flex flex-wrap gap-x-3.5 gap-y-1 text-[12px] text-dim">
+      @for (t of calTypes(); track t) {
+        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-[3px]" [style.background]="typeColor[t]"></span>{{ t }}</span>
+      }
+      <span class="ml-auto">Tap a day to open it</span>
+    </div>
+  </section>
+
+  <section class="rise mb-3" style="--i: 5" aria-label="Notes">
+    <div class="mt-6 mb-2.5 flex items-baseline justify-between gap-3">
+      <h2 class="display text-[22px] text-bright">Notes</h2>
+      <span class="label">{{ notes().length }} on sets</span>
+    </div>
+    @if (!notes().length) {
+      <p class="text-[14px] text-dim">Notes you add to a set show up here.</p>
+    }
+    <div class="card divide-y divide-line overflow-hidden">
+      @for (n of shownNotes(); track $index) {
+        <button class="block w-full px-4 py-3 text-left active:bg-raised" (click)="openSession(n.id)">
+          <span class="mb-1 flex items-center justify-between gap-2">
+            <span class="flex min-w-0 items-center gap-2">
+              <app-type-badge [type]="n.type" />
+              <span class="truncate text-[14px] font-medium text-bright">{{ n.lift }}</span>
+            </span>
+            <span class="shrink-0 text-[12px] text-dim">{{ fmtDate(n.date) }}</span>
+          </span>
+          <span class="block text-[14px] text-ink">
+            <span class="num text-dim">{{ fmtWeight(n.set.w) }}×{{ n.set.r }}</span> · {{ n.set.note }}
+          </span>
+        </button>
+      }
+    </div>
+    @if (notes().length > shownNotes().length) {
+      <button class="press mt-2 w-full rounded-2xl bg-card py-3 text-[14px] font-medium text-ink" (click)="allNotesShown.set(true)">
+        Show all {{ notes().length }}
+      </button>
+    }
+  </section>
+}

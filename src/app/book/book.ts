@@ -1,9 +1,10 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { NgTemplateOutlet } from '@angular/common';
 import { map } from 'rxjs';
 import { Session } from '../db';
-import { TYPE_COLOR, fmtDate, fmtWeight, pad, sessionPrs, todayIso } from '../lifts';
+import { LiftScore, TYPE_COLOR, fmtDate, fmtWeight, pad, sessionPrs, todayIso } from '../lifts';
 import { SessionStore } from '../session-store';
 import { SessionDetail } from '../shared/session-detail';
 import { TypeBadge } from '../shared/type-badge';
@@ -17,7 +18,7 @@ interface Cell {
 /** History and Calendar in one place: a month view by default, or the full list. */
 @Component({
   selector: 'app-book',
-  imports: [SessionDetail, TypeBadge],
+  imports: [SessionDetail, TypeBadge, NgTemplateOutlet],
   templateUrl: './book.html',
 })
 export class Book {
@@ -67,21 +68,81 @@ export class Book {
   });
   protected readonly celebrationDismissed = signal(false);
 
-  /** PRs in the session that was just logged, for the celebration card. */
+  /** The strength score and PRs of the session that was just logged, for the card after Finish. */
   protected readonly celebration = computed(() => {
     const id = this.openParam();
     const s = id != null && this.justSaved() ? this.store.get(id) : undefined;
     if (!s || this.celebrationDismissed()) return null;
-    const prs = sessionPrs(this.store.all(), s);
-    return prs.length ? { session: s, prs } : null;
+    const prs = new Map(sessionPrs(this.store.all(), s).map((p) => [p.name, p]));
+    const score = this.store.scores().get(s.id!);
+    return { session: s, prs, points: score?.points ?? null, lifts: score?.lifts ?? [] };
   });
+
+  protected scoreOf(s: Session): number | null {
+    return this.store.scores().get(s.id!)?.points ?? null;
+  }
+
+  /** "+2.6% on Thu Nov 6", plus a note when a long gap made it count for less. */
+  protected describe(l: LiftScore): string {
+    if (l.points == null) return 'First time · sets the baseline';
+    const pct = l.change * 100;
+    const change = Math.abs(pct) < 0.05 ? 'Matched' : `${pct > 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}% on`;
+    const gap = l.gapDays! > 21 ? ` · ${l.gapDays} days back, counts less` : '';
+    return `${change} ${fmtDate(l.prevDate!)}${gap}`;
+  }
+
+  protected sets(sets: { w: number; r: number }[]): string {
+    return sets.map((x) => `${fmtWeight(x.w)}×${x.r}`).join(' · ');
+  }
+
+  /** Export picks: tap sessions in the list, then export just those. */
+  protected readonly selecting = signal(false);
+  protected readonly chosen = signal<ReadonlySet<number>>(new Set());
+
+  protected startExport() {
+    this.chosen.set(new Set());
+    this.selecting.set(true);
+    this.message.set('');
+  }
+
+  protected choose(id: number) {
+    this.chosen.update((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  protected monthChosen(sessions: Session[]): boolean {
+    const c = this.chosen();
+    return sessions.every((s) => c.has(s.id!));
+  }
+
+  protected chooseMonth(sessions: Session[]) {
+    const all = this.monthChosen(sessions);
+    this.chosen.update((cur) => {
+      const next = new Set(cur);
+      for (const s of sessions) all ? next.delete(s.id!) : next.add(s.id!);
+      return next;
+    });
+  }
+
+  protected chooseAll() {
+    const all = this.chosen().size === this.store.all().length;
+    this.chosen.set(all ? new Set() : new Set(this.store.all().map((s) => s.id!)));
+  }
+
+  protected rowTap(id: number) {
+    if (this.selecting()) this.choose(id);
+    else this.toggle(id);
+  }
 
   protected readonly fmtDate = fmtDate;
   protected readonly fmtWeight = fmtWeight;
   protected readonly typeColor = TYPE_COLOR;
   protected readonly open = signal<number | null>(null);
   protected readonly confirmDelete = signal<number | null>(null);
-  protected readonly pendingImport = signal<{ name: string; text: string; count: number } | null>(null);
+  protected readonly pendingImport = signal<{ name: string; text: string; count: number; fresh: number } | null>(null);
   protected readonly message = signal('');
 
   /** Newest first, grouped by month. */
@@ -162,13 +223,18 @@ export class Book {
   }
 
   protected exportData() {
-    const blob = new Blob([this.store.exportJson()], { type: 'application/json' });
+    const ids = this.chosen();
+    if (!ids.size) return;
+    const picked = this.store.all().filter((s) => ids.has(s.id!));
+    const span = picked.length === 1 ? picked[0].date : `${picked[0].date}-to-${picked.at(-1)!.date}`;
+    const blob = new Blob([this.store.exportJson(ids)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `gym-log-${todayIso()}.json`;
+    a.download = `gym-log-${span}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    this.message.set(`Exported ${this.store.all().length} sessions`);
+    this.message.set(`Exported ${ids.size} session${ids.size === 1 ? '' : 's'}`);
+    this.selecting.set(false);
   }
 
   protected async pickImport(input: HTMLInputElement) {
@@ -180,19 +246,21 @@ export class Book {
       const parsed = JSON.parse(text);
       const sessions = Array.isArray(parsed) ? parsed : parsed?.sessions;
       if (!Array.isArray(sessions)) throw new Error();
-      this.pendingImport.set({ name: file.name, text, count: sessions.length });
+      const have = new Set(this.store.all().map((s) => `${s.date}|${s.type}`));
+      const fresh = sessions.filter((s: any) => !have.has(`${s?.date}|${s?.type}`)).length;
+      this.pendingImport.set({ name: file.name, text, count: sessions.length, fresh });
       this.message.set('');
     } catch {
       this.message.set(`${file.name} isn't a gym-log export`);
     }
   }
 
-  protected async confirmImport() {
+  protected async confirmImport(mode: 'merge' | 'replace') {
     const pending = this.pendingImport();
     if (!pending) return;
     try {
-      const n = await this.store.importJson(pending.text);
-      this.message.set(`Imported ${n} sessions`);
+      const n = await this.store.importJson(pending.text, mode);
+      this.message.set(mode === 'merge' ? `Added ${n} session${n === 1 ? '' : 's'}` : `Replaced with ${n} sessions`);
     } catch (e) {
       this.message.set(`Import failed: ${(e as Error).message}`);
     }

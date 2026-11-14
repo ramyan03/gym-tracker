@@ -7,24 +7,8 @@ import { map } from 'rxjs';
 import { Session, WorkoutType } from '../db';
 import { TYPES, TYPE_COLOR, TYPE_INK, canonical, fmtDate, fmtSets, fmtWeight, lastTime, liftKey, muscleArt, nextType, suggestNames, todayIso } from '../lifts';
 import { SessionStore } from '../session-store';
+import { ActiveWorkout, Draft, DraftExercise } from '../active-workout';
 
-interface DraftSet {
-  w: number | null;
-  r: number | null;
-  note: string;
-}
-interface DraftExercise {
-  name: string;
-  sets: DraftSet[];
-}
-interface Draft {
-  id?: number;
-  date: string;
-  type: WorkoutType | null; // null = use the suggested next type
-  exercises: DraftExercise[];
-}
-
-const DRAFT_KEY = 'gym-log:draft';
 const MODE_KEY = 'gym-log:mode';
 
 type Mode = 'focus' | 'list';
@@ -49,9 +33,17 @@ export class Log {
   protected readonly fmtWeight = fmtWeight;
   protected readonly muscleArt = muscleArt;
 
-  protected draft: Draft = loadDraft() ?? blankDraft();
+  private readonly active = inject(ActiveWorkout);
+  /** A past session being edited; kept apart so it never touches the workout in progress. */
+  private edit: Draft | null = null;
+  /** The session being edited, else the workout in progress. */
+  protected get draft(): Draft {
+    return this.edit ?? this.active.draft;
+  }
   /** Bumped on every edit so computeds that read the draft re-run. */
   private readonly rev = signal(0);
+  /** "Remove lift" asks again when the lift already has sets. */
+  protected readonly confirmRemove = signal(false);
   protected readonly saving = signal(false);
   protected readonly confirmDiscard = signal(false);
   /** The X in focus mode asks whether to keep the workout for later or throw it away. */
@@ -63,7 +55,7 @@ export class Log {
   private readonly mode = signal<Mode>(loadMode());
   protected readonly focus = computed(() => (this.rev(), this.mode() === 'focus' && this.draft.id == null));
   /** Index of the lift shown in focus mode. */
-  protected readonly cur = signal(0);
+  protected readonly cur = signal(this.active.draft.at ?? 0);
   protected readonly current = computed(() => (this.rev(), this.draft.exercises[this.cur()]));
   protected readonly editingName = signal(false);
   protected readonly showArt = signal(false);
@@ -121,11 +113,22 @@ export class Log {
   protected readonly canSave = computed(() => (this.rev(), toSession(this.draft).exercises.length > 0));
 
   constructor() {
+    this.active.freshen();
     effect(() => {
       const id = this.editId();
-      if (id == null || this.store.sessions() == null || this.draft.id === id) return;
+      if (id == null) {
+        if (this.edit) {
+          this.edit = null;
+          untracked(() => this.changed());
+        }
+        return;
+      }
+      if (this.store.sessions() == null || this.edit?.id === id) return;
       const s = this.store.get(id);
-      if (s) this.replace(fromSession(s));
+      if (s) {
+        this.edit = fromSession(s);
+        untracked(() => this.changed());
+      }
     });
     // A restored draft needs its steppers filled once the history (for "last time") has loaded.
     let primed = false;
@@ -139,9 +142,7 @@ export class Log {
   protected changed() {
     this.rev.update((n) => n + 1);
     this.confirmDiscard.set(false);
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(this.draft));
-    } catch {}
+    if (!this.edit) this.active.save();
   }
 
   protected setType(t: WorkoutType) {
@@ -193,6 +194,11 @@ export class Log {
   protected go(i: number) {
     const n = this.draft.exercises.length;
     this.cur.set(Math.max(0, Math.min(i, n - 1)));
+    this.confirmRemove.set(false);
+    if (!this.edit && this.active.draft.at !== this.cur()) {
+      this.active.draft.at = this.cur();
+      this.active.save();
+    }
     this.editingName.set(!this.current()?.name);
     this.prime();
   }
@@ -241,6 +247,10 @@ export class Log {
   }
 
   protected removeLift() {
+    if (this.current()?.sets.length && !this.confirmRemove()) {
+      this.confirmRemove.set(true);
+      return;
+    }
     this.draft.exercises.splice(this.cur(), 1);
     this.changed();
     this.go(this.cur());
@@ -305,7 +315,10 @@ export class Log {
     this.saving.set(true);
     try {
       const id = await this.store.save(toSession({ ...this.draft, type: this.type() }));
-      this.replace(blankDraft());
+      if (this.edit) this.edit = null;
+      else this.active.clear();
+      this.cur.set(0);
+      this.changed();
       this.router.navigate(['/book'], { queryParams: { view: 'list', open: id, saved: 1 } });
     } finally {
       this.saving.set(false);
@@ -317,25 +330,23 @@ export class Log {
       this.confirmDiscard.set(true);
       return;
     }
-    const wasEditing = this.draft.id != null;
-    this.replace(blankDraft());
-    if (wasEditing) this.router.navigate(['/log']);
-  }
-
-  protected discardAndLeave() {
-    this.replace(blankDraft());
-    this.router.navigate(['/']);
-  }
-
-  private replace(d: Draft) {
-    this.draft = d;
+    if (this.edit) {
+      const id = this.edit.id;
+      this.edit = null;
+      this.changed();
+      this.router.navigate(['/book'], { queryParams: { view: 'list', open: id } });
+      return;
+    }
+    this.active.clear();
     this.cur.set(0);
     this.changed();
   }
-}
 
-function blankDraft(): Draft {
-  return { date: todayIso(), type: null, exercises: [] };
+  protected discardAndLeave() {
+    this.active.clear();
+    this.cur.set(0);
+    this.router.navigate(['/']);
+  }
 }
 
 function loadMode(): Mode {
@@ -343,15 +354,6 @@ function loadMode(): Mode {
     return localStorage.getItem(MODE_KEY) === 'list' ? 'list' : 'focus';
   } catch {
     return 'focus';
-  }
-}
-
-function loadDraft(): Draft | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
   }
 }
 

@@ -11,9 +11,14 @@ import { SessionStore } from '../session-store';
         <div class="px-4 py-3">
           <div class="mb-2 flex items-center justify-between gap-2">
             <span class="text-[15px] font-medium text-bright">{{ ex.name }}</span>
-            @if (ex.isPeak) {
-              <span class="display rounded-md px-1.5 pt-[3px] pb-[2px] text-[13px] tracking-wide text-black" [style.background]="color()">PR</span>
-            }
+            <span class="flex shrink-0 items-center gap-2">
+              @if (ex.points != null) {
+                <span class="num text-[13px] text-dim" title="Strength score vs last time">{{ ex.points }}</span>
+              }
+              @if (ex.isPeak) {
+                <span class="display rounded-md px-1.5 pt-[3px] pb-[2px] text-[13px] tracking-wide text-black" [style.background]="color()">PR</span>
+              }
+            </span>
           </div>
           <div class="flex flex-wrap gap-1.5">
             @for (s of ex.sets; track $index) {
@@ -40,11 +45,12 @@ export class SessionDetail {
   protected readonly rows = computed(() => {
     const s = this.session();
     const peaks = new Map(this.store.peaks().map((p) => [p.key, p]));
+    const scored = new Map((this.store.scores().get(s.id!)?.lifts ?? []).map((l) => [liftKey(l.name), l.points]));
     return s.exercises.map((ex) => {
       const top = topSet(ex.sets);
       const peak = peaks.get(liftKey(ex.name));
       const isPeak = !!top && !!peak && peak.date === s.date && peak.best.w === top.w && peak.best.r === top.r;
-      return { ...ex, top, isPeak };
+      return { ...ex, top, isPeak, points: scored.get(liftKey(ex.name)) ?? null };
     });
   });
 }

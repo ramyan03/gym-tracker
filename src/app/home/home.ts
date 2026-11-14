@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { Peak, TYPE_COLOR, TYPE_INK, fmtDate, fmtWeight, nextType, pad, todayIso, weekStats, weekStreak } from '../lifts';
 import { SessionStore } from '../session-store';
 import { Theme } from '../theme';
+import { ActiveWorkout } from '../active-workout';
 
 const NAME_KEY = 'gym-log:name';
 
@@ -15,6 +16,7 @@ const NAME_KEY = 'gym-log:name';
 export class Home {
   protected readonly store = inject(SessionStore);
   protected readonly theme = inject(Theme);
+  protected readonly workout = inject(ActiveWorkout);
   protected readonly typeColor = TYPE_COLOR;
   protected readonly typeInk = TYPE_INK;
   protected readonly fmtDate = fmtDate;

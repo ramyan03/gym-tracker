@@ -1,6 +1,10 @@
 <section class="flex min-h-[calc(100dvh-4rem)] flex-col">
   <div class="rise -mt-2 flex items-center justify-between gap-3">
     <p class="label">{{ today }} · {{ greeting }}</p>
+    <span class="flex gap-1.5">
+    <a routerLink="/profile" aria-label="Profile" class="press flex h-10 w-10 items-center justify-center rounded-xl bg-card text-ink">
+      <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" /></svg>
+    </a>
     <button
       class="press flex h-10 items-center gap-1.5 rounded-xl bg-card px-3 text-[13px] font-medium text-ink"
       [attr.aria-label]="'Theme: ' + theme.mode() + '. Tap to change.'"
@@ -15,6 +19,7 @@
       </svg>
       {{ theme.mode() === 'system' ? 'Auto' : theme.mode() === 'light' ? 'Light' : 'Dark' }}
     </button>
+    </span>
   </div>
   <!-- The headline scales with screen height so taller phones don't open a gap. -->
   <h1 class="page-title rise mt-4 text-[clamp(40px,calc(7.4dvh-6px),84px)]" style="--i: 1">
@@ -74,6 +79,30 @@
         </div>
       </section>
 
+      @if (workout.active()) {
+        @let w = workout.summary();
+        <a
+          routerLink="/log"
+          class="press rise relative mb-3 block overflow-hidden rounded-[26px] p-5 text-black"
+          style="--i: 4"
+          [style.background]="typeColor[workout.type()]"
+        >
+          <span class="display pointer-events-none absolute -right-2 -bottom-7 text-[150px] opacity-10">{{ workout.type() }}</span>
+          <span class="flex items-center gap-2 text-[13px] font-semibold opacity-70">
+            <span class="h-2 w-2 animate-pulse rounded-full bg-black"></span>
+            In progress · {{ w.lifts }} lift{{ w.lifts === 1 ? '' : 's' }}, {{ w.sets }} set{{ w.sets === 1 ? '' : 's' }}
+          </span>
+          <span class="mt-1 flex items-end justify-between gap-3">
+            <span class="min-w-0">
+              <span class="display block text-[52px] [@media(max-height:780px)]:text-[44px]">Resume {{ workout.type() }}</span>
+              <span class="block truncate text-[14px] font-medium opacity-70">On {{ w.current }}</span>
+            </span>
+            <span class="mb-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black/15">
+              <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </span>
+        </a>
+      } @else {
       <a
         routerLink="/log"
         class="press rise relative mb-3 block overflow-hidden rounded-[26px] p-5 text-black"
@@ -89,6 +118,7 @@
           </span>
         </span>
       </a>
+      }
 
       <div class="grid grid-cols-2 gap-3">
         <a routerLink="/book" class="card press rise flex min-h-36 flex-col p-4" style="--i: 5">
