@@ -314,17 +314,17 @@ export function weekStreak(weeks: WeekStat[]): number {
 // beating your usual numbers on a lift you do every week.
 // ---------------------------------------------------------------------------
 
-/** Stand-in body weight so bodyweight and assisted sets get a load (lb). Only ratios matter. */
-const NOMINAL_BW = 160;
+/** Your body weight (lb), so bodyweight and assisted sets get a load. Only ratios matter. */
+const BODY_WEIGHT = 210;
 /** Gaps up to this many days count fully. */
 const FRESH_DAYS = 21;
 /** Score points per 1% better than last time. */
 const POINTS_PER_PCT = 2;
 const PR_BONUS = 5;
 
-/** Load × Epley factor; bodyweight sets use NOMINAL_BW, assisted sets subtract the help. */
+/** Load × Epley factor; bodyweight sets use BODY_WEIGHT, assisted sets subtract the help. */
 export function setStrength(s: LiftSet): number {
-  const load = s.w > 0 ? s.w : Math.max(NOMINAL_BW + s.w, 1);
+  const load = s.w > 0 ? s.w : Math.max(BODY_WEIGHT + s.w, 1);
   return load * (1 + s.r / 30);
 }
 
